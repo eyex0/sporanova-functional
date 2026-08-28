@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: sopranova-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: node dist/index.js
+    healthCheckPath: /api/trpc/system.health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_URL
+        generateValue: false
+        value: https://sopranova-api.onrender.com
+      - key: APP_ORIGIN
+        value: https://sopranova-api.onrender.com
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+        size: 48
+      - key: SESSION_DAYS
+        value: 14
+      - key: SUPABASE_URL
+        value: https://fuiuzmseqznzjjnefaep.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_Rm5msbd5J_HQ8fAjZdqi4w_gI0O39Rn
+      - key: AI_PROVIDER
+        value: openai-compatible
+      - key: AI_MODEL
+        value: gpt-4o-mini
+      - key: EMAIL_PROVIDER
+        value: console
+      - key: S3_BUCKET
+        value: sopranova-documents
+      - key: S3_REGION
+        value: eu-central-1
+      - key: S3_ENDPOINT
+        value: https://fuiuzmseqznzjjnefaep.supabase.co/storage/v1/s3
+      - key: S3_FORCE_PATH_STYLE
+        value: "true"
