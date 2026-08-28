@@ -31,8 +31,12 @@ services:
         value: sb_publishable_Rm5msbd5J_HQ8fAjZdqi4w_gI0O39Rn
       - key: AI_PROVIDER
         value: openai-compatible
+      - key: AI_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: AI_API_KEY
+        sync: false
       - key: AI_MODEL
-        value: gpt-4o-mini
+        value: openai/gpt-4o
       - key: EMAIL_PROVIDER
         value: console
       - key: S3_BUCKET

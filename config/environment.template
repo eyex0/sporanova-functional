@@ -15,11 +15,11 @@ DATA_ENCRYPTION_KEY=replace-with-a-32-byte-base64-or-hex-key
 OAUTH_GOOGLE_CLIENT_ID=
 OAUTH_GOOGLE_CLIENT_SECRET=
 
-# AI gateway (OpenAI-compatible endpoint: OpenAI, OpenRouter, local gateway, etc.)
+# AI gateway (OpenRouter — works with any OpenAI-compatible endpoint)
 AI_PROVIDER=openai-compatible
-AI_BASE_URL=https://api.openai.com/v1
-AI_API_KEY=replace-with-provider-key
-AI_MODEL=gpt-4o-mini
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_API_KEY=replace-with-openrouter-key
+AI_MODEL=openai/gpt-4o
 
 # S3-compatible object storage (AWS S3, Cloudflare R2, MinIO, etc.)
 S3_BUCKET=sopranova-documents
