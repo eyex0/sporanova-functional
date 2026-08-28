@@ -34,7 +34,7 @@ async function startServer() {
     }
   });
   app.use((req, res, next) => {
-    const origin = req.headers.origin || process.env.APP_ORIGIN || "http://localhost:3000";
+    const origin = req.headers.origin || (req.headers.host ? `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}` : process.env.APP_ORIGIN || "http://localhost:3000");
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");
