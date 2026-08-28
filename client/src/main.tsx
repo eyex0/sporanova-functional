@@ -12,5 +12,5 @@ function redirectUnauthorized(error: unknown) {
 }
 queryClient.getQueryCache().subscribe(event => { if (event.type === "updated" && event.action.type === "error") redirectUnauthorized(event.query.state.error); });
 queryClient.getMutationCache().subscribe(event => { if (event.type === "updated" && event.action.type === "error") redirectUnauthorized(event.mutation.state.error); });
-const trpcClient = trpc.createClient({ links: [httpBatchLink({ url: "/api/trpc", transformer: superjson, fetch: (input, init) => fetch(input, { ...(init ?? {}), credentials: "include" }) })] });
+const trpcClient = trpc.createClient({ links: [httpBatchLink({ url: import.meta.env.VITE_API_URL || "/api/trpc", transformer: superjson, fetch: (input, init) => fetch(input, { ...(init ?? {}), credentials: "include" }) })] });
 createRoot(document.getElementById("root")!).render(<trpc.Provider client={trpcClient} queryClient={queryClient}><QueryClientProvider client={queryClient}><App /></QueryClientProvider></trpc.Provider>);
