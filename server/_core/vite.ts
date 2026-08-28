@@ -51,7 +51,7 @@ export function serveStatic(app: Express) {
   const distPath =
     process.env.NODE_ENV === "development"
       ? path.resolve(import.meta.dirname, "../..", "dist", "public")
-      : path.resolve(import.meta.dirname, "public");
+      : path.resolve(import.meta.dirname, "../../dist", "public");
   if (!fs.existsSync(distPath)) {
     console.warn(
       `Build directory not found: ${distPath}. SPA serving disabled (API only).`
