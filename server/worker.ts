@@ -123,7 +123,7 @@ export async function processDataSourceSync(payload: Record<string, unknown>) {
     if (!response.ok) throw new Error(`Data source returned HTTP ${response.status}`);
     const text = await response.text();
     const records = normalizedRecords(JSON.parse(text));
-    for (const record of records) await db.insert(dataRecords).values({ workspaceId, dataSourceId, ...record }).onDuplicateKeyUpdate({ set: { payload: record.payload, searchableText: record.searchableText } });
+    for (const record of records) await db.insert(dataRecords).values({ workspaceId, dataSourceId, ...record }).onConflictDoUpdate({ target: [dataRecords.dataSourceId, dataRecords.externalId], set: { payload: record.payload, searchableText: record.searchableText } });
     await db.update(dataSourceRuns).set({ status: "completed", recordsProcessed: records.length, completedAt: new Date() }).where(eq(dataSourceRuns.id, runId));
     await db.update(dataSources).set({ status: "connected", recordCount: records.length, sizeBytes: Buffer.byteLength(text), lastSyncAt: new Date(), lastError: null }).where(eq(dataSources.id, dataSourceId));
   } catch (error) {

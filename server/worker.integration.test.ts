@@ -31,7 +31,7 @@ function chain<T>(rows: T[]) {
 function dbMock(selectRows: unknown[][] = []) {
   let selectIndex = 0;
   const update = vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => ({ affectedRows: 1 })) })) }));
-  const insert = vi.fn(() => ({ values: vi.fn(async () => [{ insertId: 501 }]) }));
+  const insert = vi.fn(() => ({ values: vi.fn(() => { const thenable: any = {}; thenable.returning = vi.fn(async () => [{ id: 501 }]); thenable.onConflictDoUpdate = vi.fn(async () => undefined); thenable.then = (resolve: (value: unknown) => unknown) => Promise.resolve([{ id: 501 }]).then(resolve); return thenable; }) }));
   const deleteQuery = vi.fn(() => ({ where: vi.fn(async () => ({ affectedRows: 1 })) }));
   const select = vi.fn(() => chain(selectRows[selectIndex++] ?? []));
   const db = { select, update, insert, delete: deleteQuery };

@@ -47,7 +47,7 @@ function dbMock(selectRows: unknown[][], insertIds: number[] = [501]) {
   let selectIndex = 0;
   let insertIndex = 0;
   const select = vi.fn(() => chain(selectRows[selectIndex++] ?? []));
-  const insert = vi.fn(() => ({ values: vi.fn(async () => [{ insertId: insertIds[insertIndex++] ?? 999 }]) }));
+  const insert = vi.fn(() => ({ values: vi.fn(() => ({ returning: vi.fn(async () => [{ id: insertIds[insertIndex++] ?? 999 }]) })) }));
   const update = vi.fn(() => ({ set: vi.fn(() => ({ where: vi.fn(async () => ({ affectedRows: 1 })) })) }));
   const db = { select, insert, update };
   mocks.requireDb.mockResolvedValue(db);

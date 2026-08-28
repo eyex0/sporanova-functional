@@ -60,8 +60,8 @@ export function registerOAuthRoutes(app: Express) {
       let user = existingAccount ? (await db.select().from(users).where(eq(users.id, existingAccount.userId)).limit(1))[0] : undefined;
       if (!user) user = (await db.select().from(users).where(or(eq(users.email, profile.email.toLowerCase()), eq(users.openId, profile.sub))).limit(1))[0];
       if (!user) {
-        const insert = await db.insert(users).values({ openId: profile.sub, email: profile.email.toLowerCase(), name: profile.name ?? profile.email.split("@")[0], avatarUrl: profile.picture, loginMethod: "google", authProvider: "google", role: "user", lastSignedIn: new Date() });
-        user = (await db.select().from(users).where(eq(users.id, Number(insert[0].insertId))).limit(1))[0];
+        const [insert] = await db.insert(users).values({ openId: profile.sub, email: profile.email.toLowerCase(), name: profile.name ?? profile.email.split("@")[0], avatarUrl: profile.picture, loginMethod: "google", authProvider: "google", role: "user", lastSignedIn: new Date() }).returning({ id: users.id });
+        user = (await db.select().from(users).where(eq(users.id, insert.id)).limit(1))[0];
       }
       if (!user) throw new Error("Unable to create account");
       if (!existingAccount) await db.insert(oauthAccounts).values({ userId: user.id, provider: "google", providerAccountId: profile.sub });

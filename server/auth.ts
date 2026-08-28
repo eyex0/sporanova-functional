@@ -24,7 +24,7 @@ export async function registerWithPassword(input: { email: string; password: str
   const existing = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
   if (existing) throw new Error("EMAIL_ALREADY_REGISTERED");
   const passwordHash = await bcrypt.hash(input.password, 12);
-  const result = await db.insert(users).values({
+  const [row] = await db.insert(users).values({
     openId: randomUUID(),
     name: input.name.trim(),
     email,
@@ -33,8 +33,8 @@ export async function registerWithPassword(input: { email: string; password: str
     authProvider: "credentials",
     role: "user",
     lastSignedIn: new Date(),
-  });
-  const id = Number(result[0].insertId);
+  }).returning({ id: users.id });
+  const id = row.id;
   const user = (await db.select().from(users).where(eq(users.id, id)).limit(1))[0];
   if (!user) throw new Error("USER_CREATION_FAILED");
   return user;

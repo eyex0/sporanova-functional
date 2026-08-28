@@ -1,43 +1,46 @@
 import {
   boolean,
-  decimal,
   index,
-  int,
-  json,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
   primaryKey,
+  serial,
   text,
   timestamp,
   uniqueIndex,
   varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
 
 /**
  * SOPRANOVA identity records. Product-level permissions are determined by
  * workspace memberships, never by this global role alone.
  */
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const usersRoleEnum = pgEnum("users_role", ["user", "admin"]);
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(),
   passwordHash: varchar("passwordHash", { length: 255 }),
   loginMethod: varchar("loginMethod", { length: 64 }).default("credentials"),
   authProvider: varchar("authProvider", { length: 64 }).default("credentials").notNull(),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: usersRoleEnum("role").default("user").notNull(),
   jobTitle: varchar("jobTitle", { length: 160 }),
   avatarUrl: text("avatarUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
-export const authSessions = mysqlTable(
+export const authSessions = pgTable(
   "auth_sessions",
   {
     id: varchar("id", { length: 64 }).primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
     expiresAt: timestamp("expiresAt").notNull(),
     lastUsedAt: timestamp("lastUsedAt").defaultNow().notNull(),
@@ -46,11 +49,11 @@ export const authSessions = mysqlTable(
   table => [index("auth_sessions_user_idx").on(table.userId), index("auth_sessions_expires_idx").on(table.expiresAt)],
 );
 
-export const passwordResetTokens = mysqlTable(
+export const passwordResetTokens = pgTable(
   "password_reset_tokens",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
     expiresAt: timestamp("expiresAt").notNull(),
     usedAt: timestamp("usedAt"),
@@ -59,48 +62,48 @@ export const passwordResetTokens = mysqlTable(
   table => [index("password_reset_tokens_user_idx").on(table.userId), index("password_reset_tokens_expires_idx").on(table.expiresAt)],
 );
 
-export const oauthAccounts = mysqlTable(
+export const oauthAccounts = pgTable(
   "oauth_accounts",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     provider: varchar("provider", { length: 64 }).notNull(),
     providerAccountId: varchar("providerAccountId", { length: 255 }).notNull(),
     accessTokenEncrypted: text("accessTokenEncrypted"),
     refreshTokenEncrypted: text("refreshTokenEncrypted"),
     expiresAt: timestamp("expiresAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [uniqueIndex("oauth_accounts_provider_account_unique").on(table.provider, table.providerAccountId), index("oauth_accounts_user_idx").on(table.userId)],
 );
 
-export const organizations = mysqlTable(
+export const organizations = pgTable(
   "organizations",
   {
-    id: int("id").autoincrement().primaryKey(),
+    id: serial("id").primaryKey(),
     name: varchar("name", { length: 160 }).notNull(),
     slug: varchar("slug", { length: 120 }).notNull(),
     companySize: varchar("companySize", { length: 32 }),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
     deletedAt: timestamp("deletedAt"),
   },
   table => [uniqueIndex("organizations_slug_unique").on(table.slug)],
 );
 
-export const workspaces = mysqlTable(
+export const workspaces = pgTable(
   "workspaces",
   {
-    id: int("id").autoincrement().primaryKey(),
-    organizationId: int("organizationId").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    organizationId: integer("organizationId").notNull().references(() => organizations.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 160 }).notNull(),
     slug: varchar("slug", { length: 120 }).notNull(),
     isDefault: boolean("isDefault").default(false).notNull(),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
     deletedAt: timestamp("deletedAt"),
   },
   table => [
@@ -109,36 +112,40 @@ export const workspaces = mysqlTable(
   ],
 );
 
-export const jobs = mysqlTable(
+export const jobsStatusEnum = pgEnum("jobs_status", ["pending", "running", "completed", "failed"]);
+
+export const jobs = pgTable(
   "jobs",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").references(() => workspaces.id, { onDelete: "cascade" }),
     type: varchar("type", { length: 80 }).notNull(),
-    status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).notNull().default("pending"),
-    payload: json("payload").$type<Record<string, unknown>>().notNull(),
-    attempts: int("attempts").notNull().default(0),
-    maxAttempts: int("maxAttempts").notNull().default(3),
+    status: jobsStatusEnum("status").notNull().default("pending"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("maxAttempts").notNull().default(3),
     runAt: timestamp("runAt").notNull().defaultNow(),
     lockedAt: timestamp("lockedAt"),
     lockedBy: varchar("lockedBy", { length: 128 }),
     completedAt: timestamp("completedAt"),
     lastError: text("lastError"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [index("jobs_dispatch_idx").on(table.status, table.runAt), index("jobs_workspace_idx").on(table.workspaceId, table.createdAt)],
 );
 
-export const memberships = mysqlTable(
+export const membershipsRoleEnum = pgEnum("memberships_role", ["owner", "admin", "member", "viewer"]);
+
+export const memberships = pgTable(
   "memberships",
   {
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    role: mysqlEnum("role", ["owner", "admin", "member", "viewer"]).notNull().default("member"),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    role: membershipsRoleEnum("role").notNull().default("member"),
     isActive: boolean("isActive").notNull().default(true),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     primaryKey({ columns: [table.workspaceId, table.userId], name: "memberships_workspace_user_pk" }),
@@ -147,12 +154,14 @@ export const memberships = mysqlTable(
   ],
 );
 
-export const userPreferences = mysqlTable(
+export const responseToneEnum = pgEnum("user_preferences_response_tone", ["concise", "professional", "detailed"]);
+
+export const userPreferences = pgTable(
   "user_preferences",
   {
-    id: int("id").autoincrement().primaryKey(),
-    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     emailNotifications: boolean("emailNotifications").notNull().default(true),
     slackNotifications: boolean("slackNotifications").notNull().default(false),
     weeklyDigest: boolean("weeklyDigest").notNull().default(true),
@@ -162,9 +171,9 @@ export const userPreferences = mysqlTable(
     extendedContextWindow: boolean("extendedContextWindow").notNull().default(true),
     citeSources: boolean("citeSources").notNull().default(true),
     proactiveInsights: boolean("proactiveInsights").notNull().default(false),
-    responseTone: mysqlEnum("responseTone", ["concise", "professional", "detailed"]).notNull().default("professional"),
+    responseTone: responseToneEnum("responseTone").notNull().default("professional"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("user_preferences_user_workspace_unique").on(table.userId, table.workspaceId),
@@ -172,22 +181,24 @@ export const userPreferences = mysqlTable(
   ],
 );
 
-export const agents = mysqlTable(
+export const agentsStatusEnum = pgEnum("agents_status", ["active", "idle", "paused", "error"]);
+
+export const agents = pgTable(
   "agents",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 160 }).notNull(),
     description: text("description"),
     purpose: text("purpose").notNull(),
-    status: mysqlEnum("status", ["active", "idle", "paused", "error"]).notNull().default("idle"),
-    configuration: json("configuration").$type<Record<string, unknown>>(),
-    capabilities: json("capabilities").$type<string[]>(),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    status: agentsStatusEnum("status").notNull().default("idle"),
+    configuration: jsonb("configuration").$type<Record<string, unknown>>(),
+    capabilities: jsonb("capabilities").$type<string[]>(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
     lastActivityAt: timestamp("lastActivityAt"),
     deletedAt: timestamp("deletedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("agents_workspace_name_unique").on(table.workspaceId, table.name),
@@ -195,24 +206,27 @@ export const agents = mysqlTable(
   ],
 );
 
-export const agentRuns = mysqlTable(
+export const agentRunsStatusEnum = pgEnum("agent_runs_status", ["pending", "running", "completed", "failed", "cancelled"]);
+export const agentRunsTriggerTypeEnum = pgEnum("agent_runs_trigger_type", ["manual", "workflow", "schedule", "data_sync"]);
+
+export const agentRuns = pgTable(
   "agent_runs",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    agentId: int("agentId").notNull().references(() => agents.id, { onDelete: "cascade" }),
-    status: mysqlEnum("status", ["pending", "running", "completed", "failed", "cancelled"]).notNull().default("pending"),
-    triggerType: mysqlEnum("triggerType", ["manual", "workflow", "schedule", "data_sync"]).notNull().default("manual"),
-    progress: int("progress").notNull().default(0),
-    input: json("input").$type<Record<string, unknown>>(),
-    output: json("output").$type<Record<string, unknown>>(),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    status: agentRunsStatusEnum("status").notNull().default("pending"),
+    triggerType: agentRunsTriggerTypeEnum("triggerType").notNull().default("manual"),
+    progress: integer("progress").notNull().default(0),
+    input: jsonb("input").$type<Record<string, unknown>>(),
+    output: jsonb("output").$type<Record<string, unknown>>(),
     errorMessage: text("errorMessage"),
     idempotencyKey: varchar("idempotencyKey", { length: 128 }),
     startedAt: timestamp("startedAt"),
     completedAt: timestamp("completedAt"),
-    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("agent_runs_workspace_idempotency_unique").on(table.workspaceId, table.idempotencyKey),
@@ -221,17 +235,20 @@ export const agentRuns = mysqlTable(
   ],
 );
 
-export const conversations = mysqlTable(
+export const messagesRoleEnum = pgEnum("messages_role", ["user", "assistant", "system"]);
+export const messagesKindEnum = pgEnum("messages_kind", ["question", "understanding", "insight", "recommendation", "action"]);
+
+export const conversations = pgTable(
   "conversations",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "cascade" }),
     lastMessageAt: timestamp("lastMessageAt").defaultNow().notNull(),
     deletedAt: timestamp("deletedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     index("conversations_workspace_last_message_idx").on(table.workspaceId, table.lastMessageAt),
@@ -239,17 +256,17 @@ export const conversations = mysqlTable(
   ],
 );
 
-export const messages = mysqlTable(
+export const messages = pgTable(
   "messages",
   {
-    id: int("id").autoincrement().primaryKey(),
-    conversationId: int("conversationId").notNull().references(() => conversations.id, { onDelete: "cascade" }),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    authorUserId: int("authorUserId").references(() => users.id, { onDelete: "set null" }),
-    role: mysqlEnum("role", ["user", "assistant", "system"]).notNull(),
-    kind: mysqlEnum("kind", ["question", "understanding", "insight", "recommendation", "action"]).notNull().default("question"),
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversationId").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    authorUserId: integer("authorUserId").references(() => users.id, { onDelete: "set null" }),
+    role: messagesRoleEnum("role").notNull(),
+    kind: messagesKindEnum("kind").notNull().default("question"),
     content: text("content").notNull(),
-    metadata: json("metadata").$type<Record<string, unknown>>(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [
@@ -258,54 +275,61 @@ export const messages = mysqlTable(
   ],
 );
 
-export const messageSources = mysqlTable(
+export const messageSourcesTypeEnum = pgEnum("message_sources_source_type", ["document", "data_source", "metric", "manual"]);
+
+export const messageSources = pgTable(
   "message_sources",
   {
-    id: int("id").autoincrement().primaryKey(),
-    messageId: int("messageId").notNull().references(() => messages.id, { onDelete: "cascade" }),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    messageId: integer("messageId").notNull().references(() => messages.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     label: varchar("label", { length: 255 }).notNull(),
-    sourceType: mysqlEnum("sourceType", ["document", "data_source", "metric", "manual"]).notNull(),
+    sourceType: messageSourcesTypeEnum("sourceType").notNull(),
     sourceReference: varchar("sourceReference", { length: 255 }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("message_sources_message_idx").on(table.messageId)],
 );
 
-export const insights = mysqlTable(
+export const insightsSeverityEnum = pgEnum("insights_severity", ["low", "medium", "high"]);
+export const insightsStatusEnum = pgEnum("insights_status", ["open", "acknowledged", "resolved"]);
+
+export const insights = pgTable(
   "insights",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
-    severity: mysqlEnum("severity", ["low", "medium", "high"]).notNull().default("low"),
+    severity: insightsSeverityEnum("severity").notNull().default("low"),
     category: varchar("category", { length: 80 }).notNull().default("insight"),
-    status: mysqlEnum("status", ["open", "acknowledged", "resolved"]).notNull().default("open"),
-    createdByAgentId: int("createdByAgentId").references(() => agents.id, { onDelete: "set null" }),
+    status: insightsStatusEnum("status").notNull().default("open"),
+    createdByAgentId: integer("createdByAgentId").references(() => agents.id, { onDelete: "set null" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [index("insights_workspace_status_created_idx").on(table.workspaceId, table.status, table.createdAt)],
 );
 
-export const dataSources = mysqlTable(
+export const dataSourcesStatusEnum = pgEnum("data_sources_status", ["connected", "syncing", "failed", "disconnected"]);
+
+export const dataSources = pgTable(
   "data_sources",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 160 }).notNull(),
     type: varchar("type", { length: 80 }).notNull(),
-    status: mysqlEnum("status", ["connected", "syncing", "failed", "disconnected"]).notNull().default("disconnected"),
-    configuration: json("configuration").$type<Record<string, unknown>>(),
-    recordCount: int("recordCount").notNull().default(0),
-    sizeBytes: int("sizeBytes").notNull().default(0),
+    status: dataSourcesStatusEnum("status").notNull().default("disconnected"),
+    configuration: jsonb("configuration").$type<Record<string, unknown>>(),
+    recordCount: integer("recordCount").notNull().default(0),
+    sizeBytes: integer("sizeBytes").notNull().default(0),
     lastSyncAt: timestamp("lastSyncAt"),
     lastError: text("lastError"),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
     deletedAt: timestamp("deletedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("data_sources_workspace_name_unique").on(table.workspaceId, table.name),
@@ -313,54 +337,58 @@ export const dataSources = mysqlTable(
   ],
 );
 
-export const dataSourceRuns = mysqlTable(
+export const dataSourceRunsStatusEnum = pgEnum("data_source_runs_status", ["pending", "running", "completed", "failed", "cancelled"]);
+
+export const dataSourceRuns = pgTable(
   "data_source_runs",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    dataSourceId: int("dataSourceId").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
-    status: mysqlEnum("status", ["pending", "running", "completed", "failed", "cancelled"]).notNull().default("pending"),
-    recordsProcessed: int("recordsProcessed").notNull().default(0),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    dataSourceId: integer("dataSourceId").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
+    status: dataSourceRunsStatusEnum("status").notNull().default("pending"),
+    recordsProcessed: integer("recordsProcessed").notNull().default(0),
     errorMessage: text("errorMessage"),
     startedAt: timestamp("startedAt"),
     completedAt: timestamp("completedAt"),
-    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("data_source_runs_source_started_idx").on(table.dataSourceId, table.startedAt)],
 );
 
-export const dataRecords = mysqlTable(
+export const dataRecords = pgTable(
   "data_records",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    dataSourceId: int("dataSourceId").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    dataSourceId: integer("dataSourceId").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
     externalId: varchar("externalId", { length: 255 }).notNull(),
-    payload: json("payload").$type<Record<string, unknown>>().notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     searchableText: text("searchableText"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [uniqueIndex("data_records_source_external_unique").on(table.dataSourceId, table.externalId), index("data_records_workspace_source_idx").on(table.workspaceId, table.dataSourceId)],
 );
 
-export const documents = mysqlTable(
+export const documentsStatusEnum = pgEnum("documents_status", ["uploading", "processing", "ready", "failed", "deleted"]);
+
+export const documents = pgTable(
   "documents",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     originalName: varchar("originalName", { length: 255 }).notNull(),
     mimeType: varchar("mimeType", { length: 120 }).notNull(),
-    sizeBytes: int("sizeBytes").notNull(),
+    sizeBytes: integer("sizeBytes").notNull(),
     storageKey: varchar("storageKey", { length: 512 }).notNull(),
     storageUrl: text("storageUrl").notNull(),
-    status: mysqlEnum("status", ["uploading", "processing", "ready", "failed", "deleted"]).notNull().default("uploading"),
+    status: documentsStatusEnum("status").notNull().default("uploading"),
     processingError: text("processingError"),
-    uploadedById: int("uploadedById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    uploadedById: integer("uploadedById").notNull().references(() => users.id, { onDelete: "restrict" }),
     deletedAt: timestamp("deletedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("documents_storage_key_unique").on(table.storageKey),
@@ -368,15 +396,15 @@ export const documents = mysqlTable(
   ],
 );
 
-export const documentChunks = mysqlTable(
+export const documentChunks = pgTable(
   "document_chunks",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    documentId: int("documentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
-    chunkIndex: int("chunkIndex").notNull(),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    documentId: integer("documentId").notNull().references(() => documents.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunkIndex").notNull(),
     content: text("content").notNull(),
-    metadata: json("metadata").$type<Record<string, unknown>>(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [
@@ -385,18 +413,18 @@ export const documentChunks = mysqlTable(
   ],
 );
 
-export const businessMetrics = mysqlTable(
+export const businessMetrics = pgTable(
   "business_metrics",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     metricDate: timestamp("metricDate").notNull(),
     metricKey: varchar("metricKey", { length: 80 }).notNull(),
     segment: varchar("segment", { length: 80 }).notNull().default("all"),
-    metricValue: decimal("metricValue", { precision: 18, scale: 4 }).notNull(),
-    metadata: json("metadata").$type<Record<string, unknown>>(),
+    metricValue: numeric("metricValue", { precision: 18, scale: 4 }).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("business_metrics_workspace_date_key_segment_unique").on(table.workspaceId, table.metricDate, table.metricKey, table.segment),
@@ -404,19 +432,21 @@ export const businessMetrics = mysqlTable(
   ],
 );
 
-export const workflows = mysqlTable(
+export const workflowsStatusEnum = pgEnum("workflows_status", ["active", "paused", "draft", "archived"]);
+
+export const workflows = pgTable(
   "workflows",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 160 }).notNull(),
     description: text("description"),
-    status: mysqlEnum("status", ["active", "paused", "draft", "archived"]).notNull().default("draft"),
+    status: workflowsStatusEnum("status").notNull().default("draft"),
     scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
     deletedAt: timestamp("deletedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("workflows_workspace_name_unique").on(table.workspaceId, table.name),
@@ -425,21 +455,23 @@ export const workflows = mysqlTable(
   ],
 );
 
-export const workflowNodes = mysqlTable(
+export const workflowNodesNodeTypeEnum = pgEnum("workflow_nodes_node_type", ["trigger", "intelligence", "condition", "action"]);
+
+export const workflowNodes = pgTable(
   "workflow_nodes",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workflowId: int("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
     nodeKey: varchar("nodeKey", { length: 80 }).notNull(),
-    nodeType: mysqlEnum("nodeType", ["trigger", "intelligence", "condition", "action"]).notNull(),
+    nodeType: workflowNodesNodeTypeEnum("nodeType").notNull(),
     label: varchar("label", { length: 160 }).notNull(),
     description: text("description"),
-    positionX: int("positionX").notNull().default(0),
-    positionY: int("positionY").notNull().default(0),
-    sortOrder: int("sortOrder").notNull().default(0),
-    configuration: json("configuration").$type<Record<string, unknown>>(),
+    positionX: integer("positionX").notNull().default(0),
+    positionY: integer("positionY").notNull().default(0),
+    sortOrder: integer("sortOrder").notNull().default(0),
+    configuration: jsonb("configuration").$type<Record<string, unknown>>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("workflow_nodes_workflow_key_unique").on(table.workflowId, table.nodeKey),
@@ -447,20 +479,23 @@ export const workflowNodes = mysqlTable(
   ],
 );
 
-export const workflowRuns = mysqlTable(
+export const workflowRunsStatusEnum = pgEnum("workflow_runs_status", ["pending", "running", "completed", "failed", "cancelled"]);
+export const workflowRunsTriggerTypeEnum = pgEnum("workflow_runs_trigger_type", ["manual", "event", "schedule"]);
+
+export const workflowRuns = pgTable(
   "workflow_runs",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    workflowId: int("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
-    status: mysqlEnum("status", ["pending", "running", "completed", "failed", "cancelled"]).notNull().default("pending"),
-    triggerType: mysqlEnum("triggerType", ["manual", "event", "schedule"]).notNull().default("manual"),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    status: workflowRunsStatusEnum("status").notNull().default("pending"),
+    triggerType: workflowRunsTriggerTypeEnum("triggerType").notNull().default("manual"),
     idempotencyKey: varchar("idempotencyKey", { length: 128 }),
-    output: json("output").$type<Record<string, unknown>>(),
+    output: jsonb("output").$type<Record<string, unknown>>(),
     errorMessage: text("errorMessage"),
     startedAt: timestamp("startedAt"),
     completedAt: timestamp("completedAt"),
-    createdById: int("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [
@@ -469,19 +504,21 @@ export const workflowRuns = mysqlTable(
   ],
 );
 
-export const integrations = mysqlTable(
+export const integrationsStatusEnum = pgEnum("integrations_status", ["connected", "failed", "disconnected"]);
+
+export const integrations = pgTable(
   "integrations",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
     provider: varchar("provider", { length: 80 }).notNull(),
     name: varchar("name", { length: 160 }).notNull(),
-    status: mysqlEnum("status", ["connected", "failed", "disconnected"]).notNull().default("disconnected"),
+    status: integrationsStatusEnum("status").notNull().default("disconnected"),
     secretReference: varchar("secretReference", { length: 255 }),
-    configuration: json("configuration").$type<Record<string, unknown>>(),
-    createdById: int("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    configuration: jsonb("configuration").$type<Record<string, unknown>>(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   table => [
     uniqueIndex("integrations_workspace_provider_name_unique").on(table.workspaceId, table.provider, table.name),
@@ -489,12 +526,12 @@ export const integrations = mysqlTable(
   ],
 );
 
-export const notifications = mysqlTable(
+export const notifications = pgTable(
   "notifications",
   {
-    id: int("id").autoincrement().primaryKey(),
-    workspaceId: int("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
-    recipientUserId: int("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    recipientUserId: integer("recipientUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
     type: varchar("type", { length: 80 }).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     content: text("content").notNull(),
@@ -509,17 +546,17 @@ export const notifications = mysqlTable(
   ],
 );
 
-export const auditLogs = mysqlTable(
+export const auditLogs = pgTable(
   "audit_logs",
   {
-    id: int("id").autoincrement().primaryKey(),
-    organizationId: int("organizationId").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    workspaceId: int("workspaceId").references(() => workspaces.id, { onDelete: "set null" }),
-    actorUserId: int("actorUserId").references(() => users.id, { onDelete: "set null" }),
+    id: serial("id").primaryKey(),
+    organizationId: integer("organizationId").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").references(() => workspaces.id, { onDelete: "set null" }),
+    actorUserId: integer("actorUserId").references(() => users.id, { onDelete: "set null" }),
     action: varchar("action", { length: 120 }).notNull(),
     resourceType: varchar("resourceType", { length: 80 }).notNull(),
     resourceId: varchar("resourceId", { length: 80 }),
-    metadata: json("metadata").$type<Record<string, unknown>>(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [

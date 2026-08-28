@@ -105,7 +105,7 @@ export const preferencesRouter = router({
       await db
         .insert(userPreferences)
         .values({ userId: ctx.user.id, workspaceId: ctx.workspaceId, ...changes })
-        .onDuplicateKeyUpdate({ set: changes });
+        .onConflictDoUpdate({ target: [userPreferences.userId, userPreferences.workspaceId], set: changes });
       return { success: true };
     }),
 });

@@ -41,8 +41,8 @@ export const agentsRouter = router({
     .input(workspaceIdInput.extend({ name: z.string().trim().min(2).max(160), purpose: z.string().trim().min(4).max(2000), description: z.string().trim().max(4000).optional(), capabilities: z.array(z.string().trim().min(1).max(80)).max(20).default([]) }))
     .mutation(async ({ ctx, input }) => {
       const db = await requireDb();
-      const created = await db.insert(agents).values({ workspaceId: ctx.workspaceId, name: input.name, purpose: input.purpose, description: input.description, capabilities: input.capabilities, createdById: ctx.user.id });
-      const id = Number(created[0].insertId);
+      const created = await db.insert(agents).values({ workspaceId: ctx.workspaceId, name: input.name, purpose: input.purpose, description: input.description, capabilities: input.capabilities, createdById: ctx.user.id }).returning({ id: agents.id });
+      const id = created[0].id;
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.created", resourceType: "agent", resourceId: id });
       return workspaceAgent(ctx.workspaceId, id);
     }),
@@ -68,8 +68,8 @@ export const agentsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const agent = await workspaceAgent(ctx.workspaceId, input.agentId);
       const db = await requireDb();
-      const runInsert = await db.insert(agentRuns).values({ workspaceId: ctx.workspaceId, agentId: agent.id, status: "pending", triggerType: "manual", progress: 0, input: { instruction: input.instruction }, createdById: ctx.user.id });
-      const runId = Number(runInsert[0].insertId);
+      const runInsert = await db.insert(agentRuns).values({ workspaceId: ctx.workspaceId, agentId: agent.id, status: "pending", triggerType: "manual", progress: 0, input: { instruction: input.instruction }, createdById: ctx.user.id }).returning({ id: agentRuns.id });
+      const runId = runInsert[0].id;
       await enqueueJob({ workspaceId: ctx.workspaceId, type: "agent.run", payload: { runId, agentId: agent.id, workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, instruction: input.instruction } });
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.run_queued", resourceType: "agentRun", resourceId: runId, metadata: { agentId: agent.id } });
       return { id: runId, status: "pending" as const, content: "The agent run was queued for the SOPRANOVA worker." };

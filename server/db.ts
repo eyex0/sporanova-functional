@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { nanoid } from "nanoid";
 import {
   auditLogs,
@@ -15,7 +16,8 @@ let connection: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
   if (!connection && process.env.DATABASE_URL) {
-    connection = drizzle(process.env.DATABASE_URL);
+    const client = postgres(process.env.DATABASE_URL, { prepare: false });
+    connection = drizzle(client);
   }
   return connection;
 }
@@ -42,7 +44,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   values.role = user.role ?? "user";
   updateSet.role = values.role;
 
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db
+    .insert(users)
+    .values(values)
+    .onConflictDoUpdate({ target: users.openId, set: updateSet });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -127,22 +132,20 @@ export async function bootstrapWorkspace(user: { id: number; name?: string | nul
   const displayName = user.name?.trim() || user.email?.split("@")[0] || "My Organization";
   const suffix = nanoid(6).toLowerCase();
   const organizationName = organizationNameOverride?.trim() || `${displayName}'s Organization`;
-  const organizationInsert = await db.insert(organizations).values({
+  const [organization] = await db.insert(organizations).values({
     name: organizationName,
     slug: `${slugify(displayName)}-${suffix}`,
     createdById: user.id,
-  });
-  const organizationId = Number(organizationInsert[0].insertId);
-  const workspaceInsert = await db.insert(workspaces).values({
-    organizationId,
+  }).returning({ id: organizations.id });
+  const [workspace] = await db.insert(workspaces).values({
+    organizationId: organization.id,
     name: organizationName === `${displayName}'s Organization` ? "Main workspace" : `${organizationName} workspace`,
     slug: "main",
     isDefault: true,
     createdById: user.id,
-  });
-  const workspaceId = Number(workspaceInsert[0].insertId);
-  await db.insert(memberships).values({ workspaceId, userId: user.id, role: "owner" });
-  await db.insert(userPreferences).values({ workspaceId, userId: user.id });
+  }).returning({ id: workspaces.id });
+  await db.insert(memberships).values({ workspaceId: workspace.id, userId: user.id, role: "owner" });
+  await db.insert(userPreferences).values({ workspaceId: workspace.id, userId: user.id });
   return listWorkspacesForUser(user.id);
 }
 

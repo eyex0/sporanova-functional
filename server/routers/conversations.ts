@@ -37,8 +37,8 @@ export const conversationsRouter = router({
 
   create: workspaceMemberProcedure.input(workspaceInput.extend({ title: z.string().trim().min(2).max(255).default("New conversation") })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    const result = await db.insert(conversations).values({ workspaceId: ctx.workspaceId, title: input.title, createdById: ctx.user.id });
-    const id = Number(result[0].insertId);
+    const [row] = await db.insert(conversations).values({ workspaceId: ctx.workspaceId, title: input.title, createdById: ctx.user.id }).returning({ id: conversations.id });
+    const id = row.id;
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "conversation.created", resourceType: "conversation", resourceId: id });
     return ensureConversation(ctx.workspaceId, id);
   }),
@@ -86,8 +86,8 @@ export const intelligenceRouter = router({
   ask: workspaceMemberProcedure.input(workspaceInput.extend({ conversationId: z.number().int().positive(), question: z.string().trim().min(3).max(4000) })).mutation(async ({ ctx, input }) => {
     await ensureConversation(ctx.workspaceId, input.conversationId);
     const db = await requireDb();
-    const questionInsert = await db.insert(messages).values({ workspaceId: ctx.workspaceId, conversationId: input.conversationId, authorUserId: ctx.user.id, role: "user", kind: "question", content: input.question });
-    const questionId = Number(questionInsert[0].insertId);
+    const questionInsert = await db.insert(messages).values({ workspaceId: ctx.workspaceId, conversationId: input.conversationId, authorUserId: ctx.user.id, role: "user", kind: "question", content: input.question }).returning({ id: messages.id });
+    const questionId = questionInsert[0].id;
     const [sourceRows, documentRows, history] = await Promise.all([
       db.select({ id: dataSources.id, name: dataSources.name, type: dataSources.type }).from(dataSources).where(and(eq(dataSources.workspaceId, ctx.workspaceId), eq(dataSources.status, "connected"), isNull(dataSources.deletedAt))).limit(8),
       db.select({ id: documents.id, name: documents.originalName }).from(documents).where(and(eq(documents.workspaceId, ctx.workspaceId), eq(documents.status, "ready"), isNull(documents.deletedAt))).limit(8),
@@ -106,8 +106,8 @@ export const intelligenceRouter = router({
         maxTokens: 1400,
       });
       const content = responseText(response.choices[0]?.message?.content) || "I could not produce a response.";
-      const answerInsert = await db.insert(messages).values({ workspaceId: ctx.workspaceId, conversationId: input.conversationId, role: "assistant", kind: "insight", content });
-      const answerId = Number(answerInsert[0].insertId);
+      const answerInsert = await db.insert(messages).values({ workspaceId: ctx.workspaceId, conversationId: input.conversationId, role: "assistant", kind: "insight", content }).returning({ id: messages.id });
+      const answerId = answerInsert[0].id;
       const sourceValues = [
         ...sourceRows.map(source => ({ messageId: answerId, workspaceId: ctx.workspaceId, label: source.name, sourceType: "data_source" as const, sourceReference: String(source.id) })),
         ...documentRows.map(document => ({ messageId: answerId, workspaceId: ctx.workspaceId, label: document.name, sourceType: "document" as const, sourceReference: String(document.id) })),
