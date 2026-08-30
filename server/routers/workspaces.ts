@@ -41,11 +41,12 @@ export const workspacesRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      console.log("[completeOnboarding] userId:", ctx.user.id, "workspaceId:", ctx.workspaceId, "input:", JSON.stringify(input).substring(0, 200));
       const db = await requireDb();
       const workspace = (
         await db.select().from(workspaces).where(and(eq(workspaces.id, ctx.workspaceId), isNull(workspaces.deletedAt))).limit(1)
       )[0];
-      if (!workspace) return null;
+      if (!workspace) { console.log("[completeOnboarding] workspace not found!"); return null; }
       await db.update(organizations).set({ name: input.organizationName, companySize: input.companySize ?? null }).where(eq(organizations.id, workspace.organizationId));
       await db.update(workspaces).set({
         name: input.workspaceName ?? workspace.name,
