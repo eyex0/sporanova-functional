@@ -5,6 +5,7 @@
 # Build outputs
 dist/*
 !dist/public/
+!dist/index.js
 build/
 *.dist
 
