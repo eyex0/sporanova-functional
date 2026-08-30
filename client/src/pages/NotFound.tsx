@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle, Home } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, useNavigate } from "react-router";
 
 export default function NotFound() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   const handleGoHome = () => {
-    setLocation("/");
+    navigate("/");
   };
 
   return (

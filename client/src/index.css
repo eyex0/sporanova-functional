@@ -105,6 +105,14 @@ h1, h2, h3, h4, h5, h6 {
   from { transform: rotate(0deg) translateX(60px) rotate(0deg); }
   to   { transform: rotate(360deg) translateX(60px) rotate(-360deg); }
 }
+@keyframes sn-orbit-item {
+  from { transform: rotate(0deg) translateX(var(--orbit-radius, 140px)) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(var(--orbit-radius, 140px)) rotate(-360deg); }
+}
+@keyframes sn-orbit-counter {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
 @keyframes sn-writing {
   from { width: 0; }
   to   { width: 100%; }

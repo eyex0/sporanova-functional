@@ -20,7 +20,7 @@ export default function Logo({ size = 32, color = "#1A1F3C", className = "", sho
         <line x1="13.5" y1="20" x2="26.5" y2="20" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
       </svg>
       {showWordmark && (
-        <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: size * 0.5, letterSpacing: "0.08em", color: wc, textTransform: "uppercase" }}>
+        <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: size * 0.5, letterSpacing: "0.02em", color: wc, textTransform: "uppercase" }}>
           SOPRANOVA
         </span>
       )}
