@@ -47,11 +47,23 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
+function findDistPublic(): string {
+  const candidates = [
+    path.resolve(import.meta.dirname, "public"),
+    path.resolve(import.meta.dirname, "../..", "dist", "public"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(path.join(p, "index.html"))) return p;
+  }
+  return candidates[0];
+}
+
+export function hasDistPublic(): boolean {
+  return fs.existsSync(path.join(findDistPublic(), "index.html"));
+}
+
 export function serveStatic(app: Express) {
-  const distPath =
-    process.env.NODE_ENV === "development"
-      ? path.resolve(import.meta.dirname, "../..", "dist", "public")
-      : path.resolve(import.meta.dirname, "public");
+  const distPath = findDistPublic();
   if (!fs.existsSync(distPath)) {
     console.warn(
       `Build directory not found: ${distPath}. SPA serving disabled (API only).`
@@ -61,7 +73,6 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });

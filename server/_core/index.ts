@@ -6,7 +6,7 @@ import { appRouter } from "../routers";
 import { registerOAuthRoutes } from "../oauth";
 import { createContext } from "./context";
 import { ENV } from "./env";
-import { serveStatic, setupVite } from "./vite";
+import { serveStatic, setupVite, hasDistPublic } from "./vite";
 
 async function startServer() {
   if (ENV.isProduction && !ENV.sessionSecret) throw new Error("SESSION_SECRET must be configured in production");
@@ -44,8 +44,13 @@ async function startServer() {
     next();
   });
   app.use("/api/trpc", createExpressMiddleware({ router: appRouter, createContext }));
-  if (process.env.NODE_ENV === "development") await setupVite(app, server);
-  else serveStatic(app);
+  if (hasDistPublic()) {
+    serveStatic(app);
+  } else if (process.env.NODE_ENV === "development") {
+    await setupVite(app, server);
+  } else {
+    console.warn("No dist/public found and not in development mode. API-only mode.");
+  }
 
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, process.env.HOST ?? "0.0.0.0", () => {
