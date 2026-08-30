@@ -216,28 +216,28 @@ export default function Home() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-16"
           style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? "none" : "translateY(20px)", transition: "opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1)" }}>
           <div className="max-w-3xl">
-            <div className="sn-label mb-6" style={{ display: "flex", alignItems: "center", gap: "0.75rem", color: "#696969" }}><span style={{ color: "#f15a31" }}>✳</span> Enterprise-grade <span style={{ opacity: 0.5 }}>|</span> Built for scale from day one</div>
-            <h1 className="sn-display mb-6" style={{ fontSize: "clamp(2.75rem, 6vw, 5rem)", color: "#1A1F3C", letterSpacing: "-0.04em" }}>
-              Conversational<br />
-              <em style={{ color: "#1A1F3C", fontStyle: "italic", fontWeight: 400 }}>agents for customer</em><br />
-              experience
+            <div className="sn-label mb-6">Enterprise Intelligence Platform</div>
+            <h1 className="sn-display mb-6" style={{ fontSize: "clamp(2.75rem, 6vw, 5rem)", color: "#1A1F3C" }}>
+              Intelligence,<br />
+              <span style={{ color: "#6B7FBF" }}>without the</span><br />
+              complexity.
             </h1>
             <p className="mb-10 max-w-xl leading-relaxed" style={{ fontSize: "1.125rem", color: "#6B6660" }}>
-              AI agents that meet customers at every stage of their journey, across chat, email, and voice, to resolve issues end to end and increase revenue.
+              SOPRANOVA connects enterprise data, AI, analytics, and automation into one intelligent platform. Power that feels effortless.
             </p>
             <div className="flex flex-wrap gap-4">
-              <Link to="/auth/signup" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300"
+              <Link to="/platform" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300"
                 style={{ background: "#1A1F3C", color: "#FAFAF8" }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = "#252B4A"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(26,31,60,0.18)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "#1A1F3C"; e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
-                Start free trial
+                Explore the Platform
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </Link>
-              <Link to="/enterprise" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 border"
+              <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 border"
                 style={{ borderColor: "#D4D1CB", color: "#1A1F3C" }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1A1F3C"; e.currentTarget.style.transform = "translateY(-2px)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#D4D1CB"; e.currentTarget.style.transform = ""; }}>
-                Get a demo
+                Talk to an Expert
               </Link>
             </div>
           </div>

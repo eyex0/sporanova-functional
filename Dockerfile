@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm run build:full
+RUN pnpm run build
 
 EXPOSE 3000
 
