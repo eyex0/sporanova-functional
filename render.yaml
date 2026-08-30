@@ -6,7 +6,6 @@ services:
     region: frankfurt
     buildCommand: npm install && npm run build
     startCommand: node dist/index.js
-    preDeployCommand: npx drizzle-kit push
     healthCheckPath: /api/trpc/system.health
     autoDeploy: true
     envVars:
@@ -17,12 +16,16 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: APP_ORIGIN
-        value: https://public-hkdyhg20b-eyex.vercel.app
+        value: https://sopranova-api.onrender.com
+      - key: APP_URL
+        value: https://sopranova-api.onrender.com
       - key: DATABASE_URL
         sync: false
       - key: SESSION_SECRET
         generateValue: true
         size: 48
+      - key: SESSION_DAYS
+        value: "14"
       - key: SUPABASE_URL
         value: https://fuiuzmseqznzjjnefaep.supabase.co
       - key: SUPABASE_ANON_KEY
@@ -36,6 +39,10 @@ services:
       - key: AI_API_KEY
         sync: false
       - key: AI_MODEL
-        value: openai/gpt-5-mini
+        value: openai/gpt-4o
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: EMAIL_FROM
+        value: "SOPRANOVA <noreply@sopranova.com>"
       - key: EMAIL_API_KEY
         sync: false
