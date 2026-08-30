@@ -111,7 +111,7 @@ export async function getUserFromSession(cookieHeader: string | undefined) {
 export function sessionCookieOptions(expiresAt?: Date) {
   return {
     httpOnly: true,
-    secure: ENV.isProduction,
+    secure: ENV.isProduction && process.env.DISABLE_SECURE_COOKIE !== "1",
     sameSite: "lax" as const,
     path: "/",
     ...(expiresAt ? { expires: expiresAt } : { maxAge: 0 }),
