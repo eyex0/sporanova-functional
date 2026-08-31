@@ -779,7 +779,7 @@ import { z } from "zod";
 
 // shared/const.ts
 var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
-var UNAUTHED_ERR_MSG = "Authentication is required.";
+var UNAUTHED_ERR_MSG = "You must be signed in to perform this action.";
 var NOT_ADMIN_ERR_MSG = "You do not have the required permission.";
 
 // server/_core/trpc.ts
@@ -859,9 +859,16 @@ import { z as z3 } from "zod";
 import { TRPCError as TRPCError2 } from "@trpc/server";
 import { z as z2 } from "zod";
 var workspaceInput = z2.object({ workspaceId: z2.number().int().positive() });
+function unwrapSuperjson(rawInput) {
+  if (rawInput && typeof rawInput === "object" && "json" in rawInput) {
+    return rawInput.json;
+  }
+  return rawInput;
+}
 var workspaceProcedure = protectedProcedure.use(async ({ ctx, next, getRawInput }) => {
   const rawInput = await getRawInput();
-  const parsed = workspaceInput.safeParse(rawInput);
+  const unwrapped = unwrapSuperjson(rawInput);
+  const parsed = workspaceInput.safeParse(unwrapped);
   if (!parsed.success) {
     throw new TRPCError2({ code: "BAD_REQUEST", message: "A valid workspace is required." });
   }

@@ -8,9 +8,17 @@ export type WorkspaceRole = (typeof workspaceRoles)[number];
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
 
+function unwrapSuperjson(rawInput: unknown): unknown {
+  if (rawInput && typeof rawInput === "object" && "json" in rawInput) {
+    return (rawInput as { json: unknown }).json;
+  }
+  return rawInput;
+}
+
 export const workspaceProcedure = protectedProcedure.use(async ({ ctx, next, getRawInput }) => {
   const rawInput = await getRawInput();
-  const parsed = workspaceInput.safeParse(rawInput);
+  const unwrapped = unwrapSuperjson(rawInput);
+  const parsed = workspaceInput.safeParse(unwrapped);
   if (!parsed.success) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "A valid workspace is required." });
   }
