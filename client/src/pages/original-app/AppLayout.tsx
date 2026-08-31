@@ -22,6 +22,17 @@ import {
   ChevronRight,
   ChevronLeft,
   Headphones,
+  Rocket,
+  Plug,
+  Megaphone,
+  Ticket,
+  MoreHorizontal,
+  CircleDot,
+  Square,
+  Star,
+  FileText,
+  Puzzle,
+  Globe,
 } from "lucide-react";
 import "./DashboardLayout.css";
 
@@ -32,11 +43,13 @@ type NavItem = {
   hasSubmenu?: boolean;
   subItems?: Array<{ label: string; path: string }>;
   defaultOpen?: boolean;
+  external?: boolean;
+  separator?: boolean;
 };
 
 const mainNavItems: NavItem[] = [
   { label: "Backstage", path: "/dashboard", icon: Sparkles },
-  { label: "Playground", path: "/dashboard/playground", icon: Headphones },
+  { label: "Playground", path: "/dashboard/playground", icon: CircleDot },
   {
     label: "Build",
     icon: Hammer,
@@ -71,11 +84,11 @@ const mainNavItems: NavItem[] = [
     ],
   },
   { label: "Contacts", path: "/dashboard/contacts", icon: Users },
-  { label: "Channels", path: "/dashboard/channels", icon: Layers },
-  { label: "Integrations", path: "/dashboard/integrations", icon: BookOpen },
-  { label: "Outbound", path: "/dashboard/outbound", icon: Send },
-  { label: "Helpdesk inbox", path: "/dashboard/helpdesk", icon: Inbox },
-  { label: "Settings", path: "/dashboard/settings", icon: Settings },
+  { label: "Channels", path: "/dashboard/channels", icon: Rocket },
+  { label: "Integrations", path: "/dashboard/integrations", icon: Plug },
+  { label: "Outbound", path: "/dashboard/outbound", icon: Megaphone },
+  { separator: true, label: "", icon: Sparkles },
+  { label: "Helpdesk inbox", path: "/dashboard/helpdesk", icon: Ticket, external: true },
 ];
 
 export default function AppLayout() {
@@ -84,7 +97,7 @@ export default function AppLayout() {
   const { workspace } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(
-    new Set(["Playground", "Build", "Activity", "Analytics"])
+    new Set(["Build", "Activity", "Analytics"])
   );
 
   const isActive = (path: string) =>
@@ -117,12 +130,21 @@ export default function AppLayout() {
     <div className="dashboard-layout">
       <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
         <div className="sidebar-header">
-          {!collapsed && <Logo size={20} color="#FFFFFF" showWordmark />}
+          <div className="sidebar-logo-area">
+            <div className="sidebar-logo-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            {!collapsed && <span className="sidebar-logo-wordmark">SOPRANOVA</span>}
+          </div>
           <button
             className="sidebar-toggle"
             onClick={() => setCollapsed((prev) => !prev)}
           >
-            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
         </div>
 
@@ -135,21 +157,17 @@ export default function AppLayout() {
                 </span>
                 <span className="sidebar-workspace-badge">Free</span>
               </div>
-              <ChevronsUpDown size={14} color="rgba(255,255,255,0.5)" />
+              <ChevronsUpDown size={14} color="#686868" />
             </div>
           </div>
         )}
 
-        {!collapsed && (
-          <div className="sidebar-search">
-            <Search size={14} color="rgba(255,255,255,0.5)" />
-            <input placeholder="Search..." readOnly />
-            <span className="sidebar-search-kbd">Ctrl K</span>
-          </div>
-        )}
-
         <nav className="sidebar-nav">
-          {mainNavItems.map((item) => {
+          {mainNavItems.map((item, i) => {
+            if (item.separator) {
+              return <div key={`sep-${i}`} className="sidebar-separator" />;
+            }
+
             const Icon = item.icon;
             const active = item.path ? isActive(item.path) : false;
             const subActive = item.subItems?.some((s) => isActive(s.path)) ?? false;
@@ -199,42 +217,43 @@ export default function AppLayout() {
                 className={`sidebar-link ${active ? "sidebar-link--active" : ""}`}
               >
                 <Icon size={18} className="sidebar-link-icon" />
-                {!collapsed && <span className="sidebar-link-label">{item.label}</span>}
+                {!collapsed && (
+                  <>
+                    <span className="sidebar-link-label">{item.label}</span>
+                    {item.external && <ExternalLink size={12} className="sidebar-link-external" />}
+                  </>
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {!collapsed && (
-          <div className="sidebar-progress-card">
-            <Link to="/dashboard/getting-started" className="sidebar-progress-header">
-              <span>Getting started</span>
-              <ChevronRight size={12} color="rgba(255,255,255,0.5)" />
-            </Link>
-            <p className="sidebar-progress-count">0 / 2 completed</p>
-            <div className="sidebar-progress-bar">
-              <div className="sidebar-progress-bar-fill" style={{ width: "0%" }} />
-            </div>
-          </div>
-        )}
-
         <div className="sidebar-footer">
           {!collapsed && (
-            <>
-              <a className="sidebar-link" href="#" onClick={(e) => e.preventDefault()}>
-                <BookOpen size={18} className="sidebar-link-icon" />
-                <span className="sidebar-link-label">Documentation</span>
-                <ExternalLink size={12} color="rgba(255,255,255,0.4)" />
-              </a>
-              <button className="sidebar-logout" onClick={() => logout()}>
-                <LogOut size={16} />
-                <span>Sign out</span>
-              </button>
-            </>
+            <a className="sidebar-footer-link" href="#" onClick={(e) => e.preventDefault()}>
+              <BookOpen size={18} />
+              <span>Documentation</span>
+              <ExternalLink size={12} className="sidebar-link-external" />
+            </a>
           )}
+
+          {!collapsed && (
+            <div className="sidebar-user-row" onClick={() => logout()}>
+              <div className="sidebar-user-avatar">
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#686868" }}>
+                  {user?.name?.[0] || user?.email?.[0]?.toUpperCase() || "U"}
+                </span>
+              </div>
+              <span className="sidebar-user-name">
+                {user?.name || user?.email || "User"}
+              </span>
+              <MoreHorizontal size={14} className="sidebar-user-menu" />
+            </div>
+          )}
+
           {collapsed && (
-            <button className="sidebar-logout sidebar-logout--icon" onClick={() => logout()}>
-              <LogOut size={18} />
+            <button className="sidebar-toggle" onClick={() => logout()} title="Sign out">
+              <LogOut size={16} />
             </button>
           )}
         </div>
