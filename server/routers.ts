@@ -7,9 +7,14 @@ import { publicProcedure, router } from "./_core/trpc";
 import { agentsRouter } from "./routers/agents";
 import { analyticsRouter } from "./routers/analytics";
 import { auditRouter, notificationsRouter } from "./routers/notifications";
+import { contactsRouter } from "./routers/contacts";
 import { conversationsRouter, intelligenceRouter } from "./routers/conversations";
 import { dashboardRouter } from "./routers/dashboard";
 import { dataSourcesRouter, documentsRouter, memoryRouter } from "./routers/data";
+import { helpdeskRouter } from "./routers/helpdesk";
+import { channelsRouter } from "./routers/channels";
+import { leadsRouter } from "./routers/leads";
+import { outboundRouter } from "./routers/outbound";
 import { preferencesRouter, workspacesRouter } from "./routers/workspaces";
 import { workflowsRouter } from "./routers/workflows";
 
@@ -73,6 +78,11 @@ export const appRouter = router({
   workflows: workflowsRouter,
   notifications: notificationsRouter,
   audit: auditRouter,
+  contacts: contactsRouter,
+  leads: leadsRouter,
+  helpdesk: helpdeskRouter,
+  channels: channelsRouter,
+  outbound: outboundRouter,
 });
 
 export type AppRouter = typeof appRouter;

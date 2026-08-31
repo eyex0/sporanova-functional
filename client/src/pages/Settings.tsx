@@ -1,27 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { preferencesApi } from "@/lib/trpc";
-import { User, Bell, Shield, Save } from "lucide-react";
+import { User, Bell, Shield, Save, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import "./Settings.css";
 
-type Tab = "profile" | "notifications" | "preferences";
+type Tab = "profile" | "notifications" | "preferences" | "security";
 
 interface NotificationPrefs {
   emailNotifications: boolean;
   slackNotifications: boolean;
   weeklyDigest: boolean;
   agentNotifications: boolean;
+  anomalyNotifications: boolean;
+  reportNotifications: boolean;
 }
 
 interface PreferencePrefs {
   responseTone: "concise" | "professional" | "detailed";
-  contextWindow: number;
+  contextWindow: boolean;
   citeSources: boolean;
+  proactiveInsights: boolean;
 }
 
 export default function Settings() {
-  const { workspaceId, user } = useAuth();
+  const { workspaceId, user, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
 
   const [profile, setProfile] = useState({
@@ -35,29 +40,64 @@ export default function Settings() {
     slackNotifications: false,
     weeklyDigest: true,
     agentNotifications: true,
+    anomalyNotifications: true,
+    reportNotifications: false,
   });
 
   const [preferences, setPreferences] = useState<PreferencePrefs>({
     responseTone: "professional",
-    contextWindow: 4096,
+    contextWindow: true,
     citeSources: true,
+    proactiveInsights: false,
   });
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: savedPrefs, isLoading: prefsLoading } = useQuery({
     queryKey: ["preferences.get", workspaceId],
-    queryFn: () => preferencesApi.get({ workspaceId: workspaceId! }),
+    queryFn: () => preferencesApi.get({ workspaceId: workspaceId! }) as Promise<any>,
     enabled: !!workspaceId,
   });
 
+  useEffect(() => {
+    if (!savedPrefs) return;
+    if (savedPrefs.name) setProfile(p => ({ ...p, name: savedPrefs.name ?? "", jobTitle: savedPrefs.jobTitle ?? "" }));
+    setNotifications({
+      emailNotifications: savedPrefs.emailNotifications ?? true,
+      slackNotifications: savedPrefs.slackNotifications ?? false,
+      weeklyDigest: savedPrefs.weeklyDigest ?? true,
+      agentNotifications: savedPrefs.agentNotifications ?? true,
+      anomalyNotifications: savedPrefs.anomalyNotifications ?? true,
+      reportNotifications: savedPrefs.reportNotifications ?? false,
+    });
+    setPreferences({
+      responseTone: savedPrefs.responseTone ?? "professional",
+      contextWindow: savedPrefs.extendedContextWindow ?? true,
+      citeSources: savedPrefs.citeSources ?? true,
+      proactiveInsights: savedPrefs.proactiveInsights ?? false,
+    });
+  }, [savedPrefs]);
+
   const updateProfile = useMutation({
     mutationFn: preferencesApi.updateProfile,
+    onSuccess: () => {
+      toast.success("Profile updated");
+      queryClient.invalidateQueries({ queryKey: ["preferences.get"] });
+      refreshUser?.();
+    },
+    onError: () => toast.error("Failed to update profile"),
   });
 
   const updatePrefs = useMutation({
     mutationFn: preferencesApi.update,
+    onSuccess: () => {
+      toast.success("Preferences saved");
+      queryClient.invalidateQueries({ queryKey: ["preferences.get"] });
+    },
+    onError: () => toast.error("Failed to save preferences"),
   });
 
-  if (!workspaceId) {
+  if (!workspaceId || prefsLoading) {
     return (
       <div className="settings-page">
         <div className="loading-spinner" />
@@ -69,6 +109,7 @@ export default function Settings() {
     { key: "profile", label: "Profile", icon: <User size={16} /> },
     { key: "notifications", label: "Notifications", icon: <Bell size={16} /> },
     { key: "preferences", label: "Preferences", icon: <Shield size={16} /> },
+    { key: "security", label: "Security", icon: <Eye size={16} /> },
   ];
 
   const handleSaveProfile = () => {
@@ -80,18 +121,16 @@ export default function Settings() {
   };
 
   const handleSaveNotifications = () => {
-    updatePrefs.mutate({
-      workspaceId,
-      section: "notifications",
-      ...notifications,
-    });
+    updatePrefs.mutate({ workspaceId, ...notifications });
   };
 
   const handleSavePreferences = () => {
     updatePrefs.mutate({
       workspaceId,
-      section: "preferences",
-      ...preferences,
+      responseTone: preferences.responseTone,
+      extendedContextWindow: preferences.contextWindow,
+      citeSources: preferences.citeSources,
+      proactiveInsights: preferences.proactiveInsights,
     });
   };
 
@@ -122,52 +161,25 @@ export default function Settings() {
           {activeTab === "profile" && (
             <div className="settings-section">
               <h2>Profile</h2>
-              <p className="section-desc">
-                Update your personal information
-              </p>
+              <p className="section-desc">Update your personal information</p>
 
               <div className="form-group">
                 <label htmlFor="settings-name">Full Name</label>
-                <input
-                  id="settings-name"
-                  type="text"
-                  value={profile.name}
-                  onChange={(e) =>
-                    setProfile({ ...profile, name: e.target.value })
-                  }
-                />
+                <input id="settings-name" type="text" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
               </div>
 
               <div className="form-group">
                 <label htmlFor="settings-email">Email</label>
-                <input
-                  id="settings-email"
-                  type="email"
-                  value={profile.email}
-                  readOnly
-                  className="readonly"
-                />
+                <input id="settings-email" type="email" value={profile.email} readOnly className="readonly" />
                 <span className="form-hint">Contact support to change your email</span>
               </div>
 
               <div className="form-group">
                 <label htmlFor="settings-title">Job Title</label>
-                <input
-                  id="settings-title"
-                  type="text"
-                  placeholder="e.g. Software Engineer"
-                  value={profile.jobTitle}
-                  onChange={(e) =>
-                    setProfile({ ...profile, jobTitle: e.target.value })
-                  }
-                />
+                <input id="settings-title" type="text" placeholder="e.g. Software Engineer" value={profile.jobTitle} onChange={(e) => setProfile({ ...profile, jobTitle: e.target.value })} />
               </div>
 
-              <button
-                className="btn-primary"
-                onClick={handleSaveProfile}
-                disabled={updateProfile.isPending}
-              >
+              <button className="btn-primary" onClick={handleSaveProfile} disabled={updateProfile.isPending}>
                 <Save size={16} />
                 {updateProfile.isPending ? "Saving..." : "Save Changes"}
               </button>
@@ -177,105 +189,35 @@ export default function Settings() {
           {activeTab === "notifications" && (
             <div className="settings-section">
               <h2>Notifications</h2>
-              <p className="section-desc">
-                Choose how you want to be notified
-              </p>
+              <p className="section-desc">Choose how you want to be notified</p>
 
               <div className="toggle-group">
-                <div className="toggle-row">
-                  <div className="toggle-info">
-                    <span className="toggle-label">Email Notifications</span>
-                    <span className="toggle-desc">
-                      Receive updates about your workspace via email
-                    </span>
+                {[
+                  { key: "emailNotifications", label: "Email Notifications", desc: "Receive updates about your workspace via email" },
+                  { key: "slackNotifications", label: "Slack Notifications", desc: "Get notified in your connected Slack channel" },
+                  { key: "weeklyDigest", label: "Weekly Digest", desc: "Summary of activity and performance each week" },
+                  { key: "agentNotifications", label: "Agent Notifications", desc: "Alerts when agents complete tasks or encounter errors" },
+                  { key: "anomalyNotifications", label: "Anomaly Alerts", desc: "Be alerted about unusual activity" },
+                  { key: "reportNotifications", label: "Report Ready", desc: "Get notified when scheduled reports are ready" },
+                ].map((row) => (
+                  <div className="toggle-row" key={row.key}>
+                    <div className="toggle-info">
+                      <span className="toggle-label">{row.label}</span>
+                      <span className="toggle-desc">{row.desc}</span>
+                    </div>
+                    <button
+                      className={`toggle-switch ${(notifications as any)[row.key] ? "on" : ""}`}
+                      onClick={() => setNotifications({ ...notifications, [row.key]: !(notifications as any)[row.key] })}
+                      role="switch"
+                      aria-checked={(notifications as any)[row.key]}
+                    >
+                      <span className="toggle-knob" />
+                    </button>
                   </div>
-                  <button
-                    className={`toggle-switch ${notifications.emailNotifications ? "on" : ""}`}
-                    onClick={() =>
-                      setNotifications({
-                        ...notifications,
-                        emailNotifications: !notifications.emailNotifications,
-                      })
-                    }
-                    role="switch"
-                    aria-checked={notifications.emailNotifications}
-                  >
-                    <span className="toggle-knob" />
-                  </button>
-                </div>
-
-                <div className="toggle-row">
-                  <div className="toggle-info">
-                    <span className="toggle-label">Slack Notifications</span>
-                    <span className="toggle-desc">
-                      Get notified in your connected Slack channel
-                    </span>
-                  </div>
-                  <button
-                    className={`toggle-switch ${notifications.slackNotifications ? "on" : ""}`}
-                    onClick={() =>
-                      setNotifications({
-                        ...notifications,
-                        slackNotifications: !notifications.slackNotifications,
-                      })
-                    }
-                    role="switch"
-                    aria-checked={notifications.slackNotifications}
-                  >
-                    <span className="toggle-knob" />
-                  </button>
-                </div>
-
-                <div className="toggle-row">
-                  <div className="toggle-info">
-                    <span className="toggle-label">Weekly Digest</span>
-                    <span className="toggle-desc">
-                      Summary of activity and performance each week
-                    </span>
-                  </div>
-                  <button
-                    className={`toggle-switch ${notifications.weeklyDigest ? "on" : ""}`}
-                    onClick={() =>
-                      setNotifications({
-                        ...notifications,
-                        weeklyDigest: !notifications.weeklyDigest,
-                      })
-                    }
-                    role="switch"
-                    aria-checked={notifications.weeklyDigest}
-                  >
-                    <span className="toggle-knob" />
-                  </button>
-                </div>
-
-                <div className="toggle-row">
-                  <div className="toggle-info">
-                    <span className="toggle-label">Agent Notifications</span>
-                    <span className="toggle-desc">
-                      Alerts when agents complete tasks or encounter errors
-                    </span>
-                  </div>
-                  <button
-                    className={`toggle-switch ${notifications.agentNotifications ? "on" : ""}`}
-                    onClick={() =>
-                      setNotifications({
-                        ...notifications,
-                        agentNotifications: !notifications.agentNotifications,
-                      })
-                    }
-                    role="switch"
-                    aria-checked={notifications.agentNotifications}
-                  >
-                    <span className="toggle-knob" />
-                  </button>
-                </div>
+                ))}
               </div>
 
-              <button
-                className="btn-primary"
-                onClick={handleSaveNotifications}
-                disabled={updatePrefs.isPending}
-              >
+              <button className="btn-primary" onClick={handleSaveNotifications} disabled={updatePrefs.isPending}>
                 <Save size={16} />
                 {updatePrefs.isPending ? "Saving..." : "Save Changes"}
               </button>
@@ -285,95 +227,105 @@ export default function Settings() {
           {activeTab === "preferences" && (
             <div className="settings-section">
               <h2>Preferences</h2>
-              <p className="section-desc">
-                Configure how your AI agents behave
-              </p>
+              <p className="section-desc">Configure how your AI agents behave</p>
 
               <div className="form-group">
                 <label>Response Tone</label>
                 <div className="radio-group">
-                  {(["concise", "professional", "detailed"] as const).map(
-                    (tone) => (
-                      <label
-                        key={tone}
-                        className={`radio-option ${preferences.responseTone === tone ? "selected" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="tone"
-                          value={tone}
-                          checked={preferences.responseTone === tone}
-                          onChange={() =>
-                            setPreferences({ ...preferences, responseTone: tone })
-                          }
-                        />
-                        <span className="radio-label">
-                          {tone.charAt(0).toUpperCase() + tone.slice(1)}
-                        </span>
-                        <span className="radio-desc">
-                          {tone === "concise"
-                            ? "Short, to-the-point answers"
-                            : tone === "professional"
-                              ? "Balanced and formal"
-                              : "Thorough, in-depth responses"}
-                        </span>
-                      </label>
-                    )
-                  )}
+                  {(["concise", "professional", "detailed"] as const).map((tone) => (
+                    <label key={tone} className={`radio-option ${preferences.responseTone === tone ? "selected" : ""}`}>
+                      <input type="radio" name="tone" value={tone} checked={preferences.responseTone === tone} onChange={() => setPreferences({ ...preferences, responseTone: tone })} />
+                      <span className="radio-label">{tone.charAt(0).toUpperCase() + tone.slice(1)}</span>
+                      <span className="radio-desc">
+                        {tone === "concise" ? "Short, to-the-point answers" : tone === "professional" ? "Balanced and formal" : "Thorough, in-depth responses"}
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="ctx-window">Context Window (tokens)</label>
-                <input
-                  id="ctx-window"
-                  type="number"
-                  min={512}
-                  max={32768}
-                  step={512}
-                  value={preferences.contextWindow}
-                  onChange={(e) =>
-                    setPreferences({
-                      ...preferences,
-                      contextWindow: Number(e.target.value),
-                    })
-                  }
-                />
-                <span className="form-hint">
-                  Number of tokens to consider for context. Default: 4096
-                </span>
+              <div className="toggle-row">
+                <div className="toggle-info">
+                  <span className="toggle-label">Extended Context Window</span>
+                  <span className="toggle-desc">Use larger context for more accurate responses (uses more tokens)</span>
+                </div>
+                <button className={`toggle-switch ${preferences.contextWindow ? "on" : ""}`} onClick={() => setPreferences({ ...preferences, contextWindow: !preferences.contextWindow })} role="switch" aria-checked={preferences.contextWindow}>
+                  <span className="toggle-knob" />
+                </button>
               </div>
 
               <div className="toggle-row">
                 <div className="toggle-info">
                   <span className="toggle-label">Cite Sources</span>
-                  <span className="toggle-desc">
-                    Include source references in agent responses
-                  </span>
+                  <span className="toggle-desc">Include source references in agent responses</span>
                 </div>
-                <button
-                  className={`toggle-switch ${preferences.citeSources ? "on" : ""}`}
-                  onClick={() =>
-                    setPreferences({
-                      ...preferences,
-                      citeSources: !preferences.citeSources,
-                    })
-                  }
-                  role="switch"
-                  aria-checked={preferences.citeSources}
-                >
+                <button className={`toggle-switch ${preferences.citeSources ? "on" : ""}`} onClick={() => setPreferences({ ...preferences, citeSources: !preferences.citeSources })} role="switch" aria-checked={preferences.citeSources}>
                   <span className="toggle-knob" />
                 </button>
               </div>
 
-              <button
-                className="btn-primary"
-                onClick={handleSavePreferences}
-                disabled={updatePrefs.isPending}
-              >
+              <div className="toggle-row">
+                <div className="toggle-info">
+                  <span className="toggle-label">Proactive Insights</span>
+                  <span className="toggle-desc">Receive AI-suggested insights about your data</span>
+                </div>
+                <button className={`toggle-switch ${preferences.proactiveInsights ? "on" : ""}`} onClick={() => setPreferences({ ...preferences, proactiveInsights: !preferences.proactiveInsights })} role="switch" aria-checked={preferences.proactiveInsights}>
+                  <span className="toggle-knob" />
+                </button>
+              </div>
+
+              <button className="btn-primary" onClick={handleSavePreferences} disabled={updatePrefs.isPending}>
                 <Save size={16} />
                 {updatePrefs.isPending ? "Saving..." : "Save Changes"}
               </button>
+            </div>
+          )}
+
+          {activeTab === "security" && (
+            <div className="settings-section">
+              <h2>Security</h2>
+              <p className="section-desc">Manage your account security</p>
+
+              <div className="security-info-card">
+                <div>
+                  <h3>Password</h3>
+                  <p>Last changed: never (set during registration)</p>
+                </div>
+                <button className="btn-secondary" onClick={() => toast.info("Use 'Forgot password' on the sign-in page to change your password.")}>Change password</button>
+              </div>
+
+              <div className="security-info-card">
+                <div>
+                  <h3>Two-Factor Authentication</h3>
+                  <p>Add an extra layer of security to your account</p>
+                </div>
+                <button className="btn-secondary" onClick={() => toast.info("2FA coming soon")}>Enable 2FA</button>
+              </div>
+
+              <div className="security-info-card">
+                <div>
+                  <h3>Active Sessions</h3>
+                  <p>Manage devices currently signed in to your account</p>
+                </div>
+                <button className="btn-secondary" onClick={() => toast.info("Session management coming soon")}>View sessions</button>
+              </div>
+
+              <div className="security-danger-zone">
+                <h3><AlertTriangle size={16} /> Danger Zone</h3>
+                <p>Once you delete your account, there is no going back.</p>
+                {!showDeleteConfirm ? (
+                  <button className="btn-danger" onClick={() => setShowDeleteConfirm(true)}>Delete account</button>
+                ) : (
+                  <div className="confirm-delete">
+                    <p>Are you absolutely sure? Type your email to confirm.</p>
+                    <input type="email" placeholder={user?.email ?? "your@email.com"} id="delete-confirm" />
+                    <div className="confirm-delete-actions">
+                      <button className="btn-secondary" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+                      <button className="btn-danger" onClick={() => toast.error("Account deletion is disabled in this preview")}>Confirm delete</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

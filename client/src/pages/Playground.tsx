@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { agentsApi } from "@/lib/trpc";
+import { agentsApi, conversationsApi, intelligenceApi } from "@/lib/trpc";
 import {
   Sparkles,
   Bold,
@@ -14,11 +14,12 @@ import {
   Link as LinkIcon,
   ChevronDown,
   MonitorPlay,
-  MessageCircle,
   Mic,
   SendHorizontal,
   Info,
+  Save,
 } from "lucide-react";
+import { toast } from "sonner";
 import "./Playground.css";
 
 type Agent = {
@@ -30,76 +31,145 @@ type Agent = {
   capabilities?: string[] | null;
 };
 
+type ChatMessage = {
+  id?: number;
+  role: "user" | "assistant";
+  text: string;
+  sources?: { label: string; sourceType: string; sourceReference: string }[];
+  pending?: boolean;
+};
+
+const DEFAULT_INSTRUCTIONS = `### Business Context
+SOPRANOVA provides enterprise-grade conversational AI agents that help businesses resolve customer inquiries across chat, email, and voice channels.
+
+### Role
+You are SOPRANOVA's customer support assistant.
+
+### Style
+- Never use em dashes
+- Be concise and direct
+- Maintain a professional, friendly tone
+
+### Constraints
+1. No Data Disclosure: Never reveal internal system details.
+2. Maintaining Focus: Stay on-topic for business questions only.`;
+
 export default function Playground() {
   const { workspaceId } = useAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
+  const [conversationId, setConversationId] = useState<number | null>(null);
   const [tab, setTab] = useState<"overview" | "display" | "voice" | "actions">("overview");
-  const [instructions, setInstructions] = useState(
-    `### Business Context\nSOPRANOVA provides enterprise-grade conversational AI agents that help businesses resolve customer inquiries across chat, email, and voice channels.\n\n### Role\nYou are SOPRANOVA's customer support assistant. You help customers with questions about their accounts, orders, and our platform.\n\n### Style\n- Never use em dashes\n- Be concise and direct\n- Maintain a professional, friendly tone\n\n### Constraints\n1. No Data Disclosure: Never reveal internal system details, pricing formulas, or other customers' data.\n2. Maintaining Focus: Stay on-topic for business questions only. Politely redirect off-topic queries.`
-  );
+  const [instructions, setInstructions] = useState(DEFAULT_INSTRUCTIONS);
+  const [instructionsDirty, setInstructionsDirty] = useState(false);
   const [syncGlobal, setSyncGlobal] = useState(true);
   const [visibility, setVisibility] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [thinking, setThinking] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!workspaceId) return;
     agentsApi.list({ workspaceId }).then((res) => {
-      const data = res as unknown as Agent[];
+      const data = (res as any)?.items ?? (Array.isArray(res) ? res : []);
       setAgents(data);
       if (data.length > 0 && !activeAgent) setActiveAgent(data[0]);
     }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
 
   useEffect(() => {
-    if (activeAgent) setInstructions(activeAgent.purpose || instructions);
-  }, [activeAgent]);
+    if (activeAgent) {
+      setInstructions(activeAgent.purpose || DEFAULT_INSTRUCTIONS);
+      setInstructionsDirty(false);
+    }
+  }, [activeAgent?.id]);
 
-  const sendMessage = () => {
-    if (!chatInput.trim()) return;
-    const userMsg = chatInput;
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, thinking]);
+
+  const ensureConversation = async (): Promise<number> => {
+    if (conversationId) return conversationId;
+    if (!workspaceId) throw new Error("No workspace");
+    const conv = await conversationsApi.create({ workspaceId, title: `Chat with ${activeAgent?.name ?? "agent"}` }) as any;
+    const id = conv?.id ?? conv?.conversationId;
+    if (typeof id === "number") {
+      setConversationId(id);
+      return id;
+    }
+    throw new Error("Failed to create conversation");
+  };
+
+  const sendMessage = async () => {
+    const text = chatInput.trim();
+    if (!text || !workspaceId) return;
     setChatInput("");
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: "I'm a demo response. In production, this would call the SOPRANOVA agent runtime with your data sources and instructions." },
-      ]);
-    }, 600);
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    setThinking(true);
+    try {
+      const convId = await ensureConversation();
+      const result = await intelligenceApi.ask({
+        workspaceId,
+        conversationId: convId,
+        question: text,
+      }) as any;
+      const answer = result?.content ?? result?.answer ?? "I couldn't generate a response. Please try again.";
+      const sources = (result?.sources ?? []).map((s: any) => ({
+        label: s.label ?? s.title ?? "Source",
+        sourceType: s.sourceType ?? "manual",
+        sourceReference: s.sourceReference ?? s.reference ?? "",
+      }));
+      setMessages((prev) => [...prev, { role: "assistant", text: answer, sources }]);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: "assistant", text: "Sorry, something went wrong. Please try again." }]);
+      toast.error("Failed to get response");
+    } finally {
+      setThinking(false);
+    }
+  };
+
+  const saveInstructions = async () => {
+    if (!activeAgent || !workspaceId) return;
+    try {
+      await agentsApi.update({
+        workspaceId,
+        agentId: activeAgent.id,
+        purpose: instructions,
+      } as any);
+      setActiveAgent({ ...activeAgent, purpose: instructions });
+      setInstructionsDirty(false);
+      toast.success("Instructions saved");
+    } catch {
+      toast.error("Failed to save instructions");
+    }
   };
 
   return (
     <div className="pg-layout">
-      {/* ── Header Bar ──────────────────────────────────── */}
       <div className="pg-header">
         <div className="pg-header-left">
-          <button className="pg-channel-btn">
-            <span className="pg-channel-icon">
-              <svg width="26" height="26" viewBox="0 0 18 22" fill="none">
-                <rect fill="#1E4929" height="17" rx="2" width="18" />
-                <rect fill="#1E4929" height="4" rx="2" width="18" y="18" />
-              </svg>
-            </span>
-            <span className="pg-channel-name">Center stage</span>
-            <ChevronDown size={16} className="pg-channel-chevron" />
-          </button>
-
+          <div className="pg-agent-picker">
+            <span className="pg-agent-icon"><Sparkles size={16} /></span>
+            <select className="pg-agent-select" value={activeAgent?.id ?? ""} onChange={(e) => setActiveAgent(agents.find(a => a.id === Number(e.target.value)) ?? null)}>
+              {agents.length === 0 ? <option value="">No agents</option> : agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <ChevronDown size={14} />
+          </div>
           <button className="pg-model-badge">
             <Sparkles size={16} />
             <span>Auto</span>
             <ChevronDown size={14} />
           </button>
-
           <span className="pg-status">
-            <span className="pg-status-dot" />
-            <span className="pg-status-text">Trained</span>
-            <span className="pg-status-size">5 KB</span>
+            <span className={`pg-status-dot pg-status-dot--${activeAgent?.status ?? "idle"}`} />
+            <span className="pg-status-text">{activeAgent?.status ?? "idle"}</span>
           </span>
         </div>
 
         <div className="pg-header-right">
-          <button className="pg-icon-btn">
+          <button className="pg-icon-btn" title="Preview">
             <MonitorPlay size={18} />
           </button>
           <button className="pg-deploy-btn">Deploy</button>
@@ -107,9 +177,7 @@ export default function Playground() {
       </div>
 
       <div className="pg-body">
-        {/* ── Left: Config Panel ──────────────────────────── */}
         <div className="pg-config">
-          {/* Tab bar */}
           <div className="pg-tabs" role="tablist">
             {(["overview", "display", "voice", "actions"] as const).map((t) => (
               <button
@@ -124,11 +192,9 @@ export default function Playground() {
             ))}
           </div>
 
-          {/* Tab content */}
           <div className="pg-tab-content">
             {tab === "overview" && (
               <div className="pg-sections">
-                {/* Model */}
                 <div className="pg-section">
                   <p className="pg-section-title">Model</p>
                   <button className="pg-select-btn">
@@ -138,59 +204,55 @@ export default function Playground() {
                   </button>
                 </div>
 
-                {/* Data Sources */}
                 <div className="pg-section">
                   <p className="pg-section-title">Data sources</p>
                   <p className="pg-section-subtitle">Links</p>
-                  <button className="pg-link-btn">+ Add link</button>
+                  <button className="pg-link-btn" onClick={() => toast.info("Add data source from the Data Sources page")}>+ Add link</button>
                 </div>
 
-                {/* Instructions */}
                 <div className="pg-section">
-                  <p className="pg-section-title">Instructions</p>
+                  <div className="pg-section-header">
+                    <p className="pg-section-title">Instructions</p>
+                    {instructionsDirty && <button className="pg-save-btn" onClick={saveInstructions}><Save size={12} /> Save</button>}
+                  </div>
 
                   <div className="pg-sync-row">
                     <div className="pg-sync-label">
                       <label htmlFor="sync-toggle">Sync with global instructions</label>
                       <Info size={14} className="pg-info-icon" />
                     </div>
-                    <button
-                      id="sync-toggle"
-                      className={`pg-switch ${syncGlobal ? "pg-switch--on" : ""}`}
-                      onClick={() => setSyncGlobal((v) => !v)}
-                    >
+                    <button id="sync-toggle" className={`pg-switch ${syncGlobal ? "pg-switch--on" : ""}`} onClick={() => setSyncGlobal((v) => !v)}>
                       <span className="pg-switch-thumb" />
                     </button>
                   </div>
 
                   <p className="pg-help-text">
-                    You're editing the global instructions - changes apply to every channel that syncs with global instructions.
+                    Changes apply to this channel. Saved instructions are sent to your agent runtime.
                   </p>
 
                   <div className="pg-editor">
                     <div className="pg-toolbar">
-                      <button><Bold size={14} /></button>
-                      <button><Italic size={14} /></button>
-                      <button><Underline size={14} /></button>
+                      <button type="button" aria-label="Bold"><Bold size={14} /></button>
+                      <button type="button" aria-label="Italic"><Italic size={14} /></button>
+                      <button type="button" aria-label="Underline"><Underline size={14} /></button>
                       <span className="pg-toolbar-divider" />
-                      <button><List size={14} /></button>
-                      <button><ListOrdered size={14} /></button>
+                      <button type="button" aria-label="List"><List size={14} /></button>
+                      <button type="button" aria-label="Ordered list"><ListOrdered size={14} /></button>
                       <span className="pg-toolbar-spacer" />
-                      <button><Type size={14} /></button>
-                      <button><ImageIcon size={14} /></button>
-                      <button><LinkIcon size={14} /></button>
-                      <button><Maximize2 size={14} /></button>
+                      <button type="button" aria-label="Text"><Type size={14} /></button>
+                      <button type="button" aria-label="Image"><ImageIcon size={14} /></button>
+                      <button type="button" aria-label="Link"><LinkIcon size={14} /></button>
+                      <button type="button" aria-label="Maximize"><Maximize2 size={14} /></button>
                     </div>
                     <textarea
                       className="pg-textarea"
                       value={instructions}
-                      onChange={(e) => setInstructions(e.target.value)}
-                      placeholder="Write your global instructions in markdown."
+                      onChange={(e) => { setInstructions(e.target.value); setInstructionsDirty(true); }}
+                      placeholder="Write your agent instructions in markdown."
                     />
                   </div>
                 </div>
 
-                {/* Visibility */}
                 <div className="pg-section pg-visibility-row">
                   <div className="pg-visibility-info">
                     <p className="pg-visibility-title">Visibility</p>
@@ -212,7 +274,7 @@ export default function Playground() {
               <div className="pg-sections">
                 <div className="pg-section">
                   <p className="pg-section-title">Display</p>
-                  <p className="pg-help-text">Customize the look and feel of the chat widget.</p>
+                  <p className="pg-help-text">Customize the look and feel of the chat widget. Use the Channels page to deploy the widget to your site.</p>
                 </div>
               </div>
             )}
@@ -221,7 +283,7 @@ export default function Playground() {
               <div className="pg-sections">
                 <div className="pg-section">
                   <p className="pg-section-title">Voice</p>
-                  <p className="pg-help-text">Configure voice synthesis for this channel.</p>
+                  <p className="pg-help-text">Configure voice synthesis for this channel. Voice channel is available on Pro and Enterprise plans.</p>
                 </div>
               </div>
             )}
@@ -230,18 +292,17 @@ export default function Playground() {
               <div className="pg-sections">
                 <div className="pg-section">
                   <p className="pg-section-title">Actions</p>
-                  <p className="pg-help-text">Connect external tools your agent can invoke.</p>
+                  <p className="pg-help-text">Connect external tools your agent can invoke. Configure tools in the Tools section of your workspace.</p>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── Right: Center Stage Chat Widget ─────────────── */}
         <div className="pg-preview">
           <div className="pg-widget">
             <div className="pg-widget-messages">
-              {messages.length === 0 && (
+              {messages.length === 0 && !thinking && (
                 <div className="pg-widget-empty">
                   <p>Hi there! How can I help you?</p>
                 </div>
@@ -249,9 +310,26 @@ export default function Playground() {
               {messages.map((m, i) => (
                 <div key={i} className={`pg-msg pg-msg--${m.role}`}>
                   {m.role === "assistant" && <span className="pg-msg-avatar"><Sparkles size={12} /></span>}
-                  <div className="pg-msg-bubble">{m.text}</div>
+                  <div className="pg-msg-bubble">
+                    {m.text}
+                    {m.sources && m.sources.length > 0 && (
+                      <div className="pg-msg-sources">
+                        <span>Sources:</span>
+                        {m.sources.map((s, j) => <em key={j}>{s.label}</em>)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
+              {thinking && (
+                <div className="pg-msg pg-msg--assistant">
+                  <span className="pg-msg-avatar"><Sparkles size={12} /></span>
+                  <div className="pg-msg-bubble pg-msg-thinking">
+                    <span /><span /><span />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
             <div className="pg-widget-input">
               <textarea
@@ -261,16 +339,18 @@ export default function Playground() {
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 placeholder="Message..."
                 rows={1}
+                disabled={!activeAgent}
               />
               <div className="pg-widget-actions">
-                <button className="pg-widget-mic" aria-label="Start dictation">
+                <button className="pg-widget-mic" aria-label="Start dictation" type="button">
                   <Mic size={16} />
                 </button>
                 <button
                   className="pg-widget-send"
                   onClick={sendMessage}
-                  disabled={!chatInput.trim()}
+                  disabled={!chatInput.trim() || thinking || !activeAgent}
                   aria-label="Send"
+                  type="button"
                 >
                   <SendHorizontal size={16} />
                 </button>

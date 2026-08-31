@@ -6,7 +6,7 @@ import { createServer } from "http";
 
 // server/routers.ts
 import { TRPCError as TRPCError8 } from "@trpc/server";
-import { z as z11 } from "zod";
+import { z as z16 } from "zod";
 
 // server/auth.ts
 import { and as and2, eq as eq2, gt, isNull as isNull2 } from "drizzle-orm";
@@ -538,6 +538,163 @@ var auditLogs = pgTable(
     index("audit_logs_actor_created_idx").on(table.actorUserId, table.createdAt)
   ]
 );
+var contactsStatusEnum = pgEnum("contacts_status", ["active", "unsubscribed", "blocked"]);
+var contacts = pgTable(
+  "contacts",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    email: varchar("email", { length: 320 }),
+    phone: varchar("phone", { length: 64 }),
+    company: varchar("company", { length: 160 }),
+    jobTitle: varchar("jobTitle", { length: 160 }),
+    source: varchar("source", { length: 80 }).default("manual"),
+    status: contactsStatusEnum("status").notNull().default("active"),
+    tags: jsonb("tags").$type().default([]),
+    metadata: jsonb("metadata").$type(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+    deletedAt: timestamp("deletedAt")
+  },
+  (table) => [
+    index("contacts_workspace_status_idx").on(table.workspaceId, table.status),
+    index("contacts_workspace_email_idx").on(table.workspaceId, table.email),
+    index("contacts_workspace_created_idx").on(table.workspaceId, table.createdAt)
+  ]
+);
+var leadsStatusEnum = pgEnum("leads_status", ["new", "contacted", "qualified", "converted", "lost"]);
+var leads = pgTable(
+  "leads",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    email: varchar("email", { length: 320 }),
+    phone: varchar("phone", { length: 64 }),
+    company: varchar("company", { length: 160 }),
+    source: varchar("source", { length: 80 }).default("manual"),
+    status: leadsStatusEnum("status").notNull().default("new"),
+    value: numeric("value", { precision: 18, scale: 2 }).default("0"),
+    notes: text("notes"),
+    assignedToId: integer("assignedToId").references(() => users.id, { onDelete: "set null" }),
+    convertedToContactId: integer("convertedToContactId").references(() => contacts.id, { onDelete: "set null" }),
+    metadata: jsonb("metadata").$type(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+    deletedAt: timestamp("deletedAt")
+  },
+  (table) => [
+    index("leads_workspace_status_idx").on(table.workspaceId, table.status),
+    index("leads_workspace_assigned_idx").on(table.workspaceId, table.assignedToId),
+    index("leads_workspace_created_idx").on(table.workspaceId, table.createdAt)
+  ]
+);
+var ticketsStatusEnum = pgEnum("tickets_status", ["new", "open", "pending", "on_hold", "resolved", "closed"]);
+var ticketsPriorityEnum = pgEnum("tickets_priority", ["low", "normal", "high", "urgent"]);
+var tickets = pgTable(
+  "tickets",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    ticketNumber: serial("ticketNumber").notNull(),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    status: ticketsStatusEnum("status").notNull().default("new"),
+    priority: ticketsPriorityEnum("priority").notNull().default("normal"),
+    source: varchar("source", { length: 80 }).default("dashboard"),
+    requesterEmail: varchar("requesterEmail", { length: 320 }),
+    requesterName: varchar("requesterName", { length: 160 }),
+    assigneeId: integer("assigneeId").references(() => users.id, { onDelete: "set null" }),
+    contactId: integer("contactId").references(() => contacts.id, { onDelete: "set null" }),
+    conversationId: integer("conversationId").references(() => conversations.id, { onDelete: "set null" }),
+    tags: jsonb("tags").$type().default([]),
+    metadata: jsonb("metadata").$type(),
+    resolvedAt: timestamp("resolvedAt"),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("tickets_workspace_number_unique").on(table.workspaceId, table.ticketNumber),
+    index("tickets_workspace_status_idx").on(table.workspaceId, table.status),
+    index("tickets_workspace_assignee_idx").on(table.workspaceId, table.assigneeId),
+    index("tickets_workspace_created_idx").on(table.workspaceId, table.createdAt)
+  ]
+);
+var ticketMessagesRoleEnum = pgEnum("ticket_messages_role", ["customer", "agent", "system", "note"]);
+var ticketMessages = pgTable(
+  "ticket_messages",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticketId").notNull().references(() => tickets.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    authorUserId: integer("authorUserId").references(() => users.id, { onDelete: "set null" }),
+    authorName: varchar("authorName", { length: 160 }),
+    role: ticketMessagesRoleEnum("role").notNull().default("customer"),
+    content: text("content").notNull(),
+    metadata: jsonb("metadata").$type(),
+    createdAt: timestamp("createdAt").defaultNow().notNull()
+  },
+  (table) => [
+    index("ticket_messages_ticket_created_idx").on(table.ticketId, table.createdAt),
+    index("ticket_messages_workspace_idx").on(table.workspaceId)
+  ]
+);
+var channelsTypeEnum = pgEnum("channels_type", ["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]);
+var channelsStatusEnum = pgEnum("channels_status", ["active", "draft", "disabled"]);
+var channels = pgTable(
+  "channels",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    type: channelsTypeEnum("type").notNull(),
+    name: varchar("name", { length: 160 }).notNull(),
+    status: channelsStatusEnum("status").notNull().default("draft"),
+    configuration: jsonb("configuration").$type(),
+    embedCode: text("embedCode"),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("channels_workspace_type_unique").on(table.workspaceId, table.type),
+    index("channels_workspace_status_idx").on(table.workspaceId, table.status)
+  ]
+);
+var campaignsTypeEnum = pgEnum("campaigns_type", ["email", "sms", "scheduled", "automated"]);
+var campaignsStatusEnum = pgEnum("campaigns_status", ["draft", "scheduled", "sending", "sent", "paused", "cancelled"]);
+var campaigns = pgTable(
+  "campaigns",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    type: campaignsTypeEnum("type").notNull(),
+    status: campaignsStatusEnum("status").notNull().default("draft"),
+    subject: varchar("subject", { length: 255 }),
+    body: text("body"),
+    recipientCount: integer("recipientCount").notNull().default(0),
+    sentCount: integer("sentCount").notNull().default(0),
+    deliveredCount: integer("deliveredCount").notNull().default(0),
+    openedCount: integer("openedCount").notNull().default(0),
+    clickedCount: integer("clickedCount").notNull().default(0),
+    scheduledAt: timestamp("scheduledAt"),
+    completedAt: timestamp("completedAt"),
+    metadata: jsonb("metadata").$type(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+    deletedAt: timestamp("deletedAt")
+  },
+  (table) => [
+    index("campaigns_workspace_status_idx").on(table.workspaceId, table.status),
+    index("campaigns_workspace_type_idx").on(table.workspaceId, table.type),
+    index("campaigns_workspace_scheduled_idx").on(table.workspaceId, table.scheduledAt)
+  ]
+);
 
 // server/db.ts
 import { and, asc, eq, isNull } from "drizzle-orm";
@@ -943,6 +1100,34 @@ var agentsRouter = router({
     await enqueueJob({ workspaceId: ctx.workspaceId, type: "agent.run", payload: { runId, agentId: agent.id, workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, instruction: input.instruction } });
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.run_queued", resourceType: "agentRun", resourceId: runId, metadata: { agentId: agent.id } });
     return { id: runId, status: "pending", content: "The agent run was queued for the SOPRANOVA worker." };
+  }),
+  update: workspaceManagerProcedure.input(workspaceIdInput.extend({
+    agentId: z3.number().int().positive(),
+    name: z3.string().trim().min(2).max(160).optional(),
+    purpose: z3.string().trim().min(4).max(8e3).optional(),
+    description: z3.string().trim().max(4e3).nullable().optional(),
+    capabilities: z3.array(z3.string().trim().min(1).max(80)).max(20).optional(),
+    configuration: z3.record(z3.unknown()).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const { agentId, ...patch } = input;
+    await workspaceAgent(ctx.workspaceId, agentId);
+    const db = await requireDb();
+    const updateValues = { updatedAt: /* @__PURE__ */ new Date() };
+    if (patch.name !== void 0) updateValues.name = patch.name;
+    if (patch.purpose !== void 0) updateValues.purpose = patch.purpose;
+    if (patch.description !== void 0) updateValues.description = patch.description;
+    if (patch.capabilities !== void 0) updateValues.capabilities = patch.capabilities;
+    if (patch.configuration !== void 0) updateValues.configuration = patch.configuration;
+    await db.update(agents).set(updateValues).where(and4(eq4(agents.id, agentId), eq4(agents.workspaceId, ctx.workspaceId)));
+    await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.updated", resourceType: "agent", resourceId: agentId });
+    return workspaceAgent(ctx.workspaceId, agentId);
+  }),
+  delete: workspaceManagerProcedure.input(workspaceIdInput.extend({ agentId: z3.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    await workspaceAgent(ctx.workspaceId, input.agentId);
+    const db = await requireDb();
+    await db.update(agents).set({ deletedAt: /* @__PURE__ */ new Date() }).where(and4(eq4(agents.id, input.agentId), eq4(agents.workspaceId, ctx.workspaceId)));
+    await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.deleted", resourceType: "agent", resourceId: input.agentId });
+    return { success: true };
   })
 });
 
@@ -990,6 +1175,73 @@ var analyticsRouter = router({
     });
     const startIndex = (input.page - 1) * input.pageSize;
     return { items: items.slice(startIndex, startIndex + input.pageSize), total: items.length, page: input.page, pageSize: input.pageSize };
+  }),
+  topics: workspaceProcedure.input(workspaceInput2.extend({ range: z4.enum(["7D", "30D", "90D", "1Y"]).default("30D") })).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { start } = dates(input.range);
+    const topicRows = await db.select({ topic: sql`coalesce(${messages.metadata}->>'topic', 'General')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'topic', 'General')`).orderBy(sql`count(*) desc`).limit(10);
+    const total = topicRows.reduce((sum, row) => sum + Number(row.count), 0) || 1;
+    const previousStart = new Date(start);
+    previousStart.setUTCDate(previousStart.getUTCDate() - rangeDays[input.range]);
+    const previousRows = await db.select({ topic: sql`coalesce(${messages.metadata}->>'topic', 'General')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, previousStart), lt(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'topic', 'General')`);
+    const previousMap = new Map(previousRows.map((r) => [r.topic, Number(r.count)]));
+    return {
+      items: topicRows.map((row, index2) => {
+        const current = Number(row.count);
+        const prior = previousMap.get(row.topic) ?? 0;
+        return {
+          name: row.topic,
+          count: current,
+          percentage: Math.round(current / total * 100),
+          trend: prior === 0 ? "up" : current > prior ? "up" : current < prior ? "down" : "stable",
+          rank: index2 + 1
+        };
+      }),
+      total
+    };
+  }),
+  sentiment: workspaceProcedure.input(workspaceInput2.extend({ range: z4.enum(["7D", "30D", "90D", "1Y"]).default("30D") })).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { start, previous } = dates(input.range);
+    const sentimentRows = await db.select({ sentiment: sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`);
+    const previousRows = await db.select({ sentiment: sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, previous), lt(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`);
+    const counts = { positive: 0, neutral: 0, negative: 0 };
+    for (const row of sentimentRows) {
+      const key2 = row.sentiment;
+      if (key2 in counts) counts[key2] = Number(row.count);
+    }
+    const previousCounts = { positive: 0, neutral: 0, negative: 0 };
+    for (const row of previousRows) {
+      const key2 = row.sentiment;
+      if (key2 in previousCounts) previousCounts[key2] = Number(row.count);
+    }
+    const total = counts.positive + counts.neutral + counts.negative;
+    const previousTotal = previousCounts.positive + previousCounts.neutral + previousCounts.negative;
+    const currentScore = total === 0 ? 0 : (counts.positive - counts.negative) / total;
+    const previousScore = previousTotal === 0 ? 0 : (previousCounts.positive - previousCounts.negative) / previousTotal;
+    return {
+      positive: total === 0 ? 0 : Math.round(counts.positive / total * 100),
+      neutral: total === 0 ? 0 : Math.round(counts.neutral / total * 100),
+      negative: total === 0 ? 0 : Math.round(counts.negative / total * 100),
+      total,
+      trend: currentScore > previousScore ? "up" : currentScore < previousScore ? "down" : "stable",
+      currentScore,
+      previousScore
+    };
+  }),
+  trends: workspaceProcedure.input(workspaceInput2.extend({ range: z4.enum(["7D", "30D", "90D", "1Y"]).default("30D"), metric: z4.enum(["conversations", "messages", "positive_sentiment"]).default("conversations") })).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { start } = dates(input.range);
+    if (input.metric === "conversations") {
+      const rows2 = await db.select({ date: sql`date_trunc('day', ${conversations.createdAt})::date::text`, count: sql`count(*)::int` }).from(conversations).where(and5(eq5(conversations.workspaceId, ctx.workspaceId), gte(conversations.createdAt, start))).groupBy(sql`date_trunc('day', ${conversations.createdAt})`).orderBy(sql`date_trunc('day', ${conversations.createdAt})`);
+      return { metric: input.metric, series: rows2.map((r) => ({ date: r.date, value: Number(r.count) })) };
+    }
+    if (input.metric === "messages") {
+      const rows2 = await db.select({ date: sql`date_trunc('day', ${messages.createdAt})::date::text`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), gte(messages.createdAt, start))).groupBy(sql`date_trunc('day', ${messages.createdAt})`).orderBy(sql`date_trunc('day', ${messages.createdAt})`);
+      return { metric: input.metric, series: rows2.map((r) => ({ date: r.date, value: Number(r.count) })) };
+    }
+    const rows = await db.select({ date: sql`date_trunc('day', ${messages.createdAt})::date::text`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start), sql`coalesce(${messages.metadata}->>'sentiment', 'neutral') = 'positive'`)).groupBy(sql`date_trunc('day', ${messages.createdAt})`).orderBy(sql`date_trunc('day', ${messages.createdAt})`);
+    return { metric: input.metric, series: rows.map((r) => ({ date: r.date, value: Number(r.count) })) };
   })
 });
 
@@ -1027,10 +1279,122 @@ var auditRouter = router({
   })
 });
 
-// server/routers/conversations.ts
-import { and as and7, desc as desc3, eq as eq7, isNull as isNull5, like, or } from "drizzle-orm";
-import { TRPCError as TRPCError5 } from "@trpc/server";
+// server/routers/contacts.ts
+import { and as and7, desc as desc3, eq as eq7, isNull as isNull5, sql as sql2 } from "drizzle-orm";
 import { z as z6 } from "zod";
+var workspaceInput4 = z6.object({ workspaceId: z6.number().int().positive() });
+var listInput = workspaceInput4.extend({
+  search: z6.string().trim().max(120).optional(),
+  status: z6.enum(["active", "unsubscribed", "blocked"]).optional(),
+  page: z6.number().int().min(1).default(1),
+  pageSize: z6.number().int().min(1).max(100).default(50)
+});
+var createInput = workspaceInput4.extend({
+  name: z6.string().trim().min(1).max(160),
+  email: z6.string().email().max(320).optional().or(z6.literal("").transform(() => void 0)),
+  phone: z6.string().trim().max(64).optional(),
+  company: z6.string().trim().max(160).optional(),
+  jobTitle: z6.string().trim().max(160).optional(),
+  source: z6.string().trim().max(80).optional(),
+  tags: z6.array(z6.string().trim().max(40)).max(20).optional(),
+  metadata: z6.record(z6.unknown()).optional()
+});
+var updateInput = workspaceInput4.extend({
+  contactId: z6.number().int().positive(),
+  name: z6.string().trim().min(1).max(160).optional(),
+  email: z6.string().email().max(320).nullable().optional(),
+  phone: z6.string().trim().max(64).nullable().optional(),
+  company: z6.string().trim().max(160).nullable().optional(),
+  jobTitle: z6.string().trim().max(160).nullable().optional(),
+  status: z6.enum(["active", "unsubscribed", "blocked"]).optional(),
+  tags: z6.array(z6.string().trim().max(40)).max(20).optional()
+});
+var idInput = workspaceInput4.extend({ contactId: z6.number().int().positive() });
+var contactsRouter = router({
+  list: workspaceProcedure.input(listInput).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const where = and7(
+      eq7(contacts.workspaceId, ctx.workspaceId),
+      isNull5(contacts.deletedAt),
+      input.status ? eq7(contacts.status, input.status) : void 0,
+      input.search ? sql2`(${contacts.name} ILIKE ${`%${input.search}%`} OR ${contacts.email} ILIKE ${`%${input.search}%`} OR ${contacts.company} ILIKE ${`%${input.search}%`})` : void 0
+    );
+    const [rows, [{ count: count2 } = { count: 0 }]] = await Promise.all([
+      db.select().from(contacts).where(where).orderBy(desc3(contacts.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
+      db.select({ count: sql2`count(*)::int` }).from(contacts).where(where)
+    ]);
+    return { items: rows, total: Number(count2), page: input.page, pageSize: input.pageSize };
+  }),
+  get: workspaceProcedure.input(idInput).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.select().from(contacts).where(and7(eq7(contacts.workspaceId, ctx.workspaceId), eq7(contacts.id, input.contactId), isNull5(contacts.deletedAt)));
+    return row ?? null;
+  }),
+  create: workspaceMemberProcedure.input(createInput).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.insert(contacts).values({
+      workspaceId: ctx.workspaceId,
+      name: input.name,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
+      company: input.company ?? null,
+      jobTitle: input.jobTitle ?? null,
+      source: input.source ?? "manual",
+      tags: input.tags ?? [],
+      metadata: input.metadata ?? {},
+      createdById: ctx.user.id
+    }).returning();
+    return row;
+  }),
+  update: workspaceMemberProcedure.input(updateInput).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { contactId, ...patch } = input;
+    const updateValues = { updatedAt: /* @__PURE__ */ new Date() };
+    if (patch.name !== void 0) updateValues.name = patch.name;
+    if (patch.email !== void 0) updateValues.email = patch.email;
+    if (patch.phone !== void 0) updateValues.phone = patch.phone;
+    if (patch.company !== void 0) updateValues.company = patch.company;
+    if (patch.jobTitle !== void 0) updateValues.jobTitle = patch.jobTitle;
+    if (patch.status !== void 0) updateValues.status = patch.status;
+    if (patch.tags !== void 0) updateValues.tags = patch.tags;
+    const [row] = await db.update(contacts).set(updateValues).where(and7(eq7(contacts.workspaceId, ctx.workspaceId), eq7(contacts.id, contactId), isNull5(contacts.deletedAt))).returning();
+    return row ?? null;
+  }),
+  delete: workspaceManagerProcedure.input(idInput).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.update(contacts).set({ deletedAt: /* @__PURE__ */ new Date(), status: "blocked" }).where(and7(eq7(contacts.workspaceId, ctx.workspaceId), eq7(contacts.id, input.contactId), isNull5(contacts.deletedAt))).returning({ id: contacts.id });
+    return row ?? null;
+  }),
+  import: workspaceMemberProcedure.input(workspaceInput4.extend({ items: z6.array(createInput.omit({ workspaceId: true })).min(1).max(500) })).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const rows = input.items.map((item) => ({
+      workspaceId: ctx.workspaceId,
+      name: item.name,
+      email: item.email ?? null,
+      phone: item.phone ?? null,
+      company: item.company ?? null,
+      jobTitle: item.jobTitle ?? null,
+      source: item.source ?? "import",
+      tags: item.tags ?? [],
+      metadata: item.metadata ?? {},
+      createdById: ctx.user.id
+    }));
+    const inserted = await db.insert(contacts).values(rows).returning();
+    return { imported: inserted.length };
+  }),
+  export: workspaceProcedure.input(workspaceInput4).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const rows = await db.select().from(contacts).where(and7(eq7(contacts.workspaceId, ctx.workspaceId), isNull5(contacts.deletedAt))).orderBy(desc3(contacts.createdAt));
+    const header = "id,name,email,phone,company,jobTitle,status,source,createdAt";
+    const csv = [header, ...rows.map((r) => [r.id, JSON.stringify(r.name), JSON.stringify(r.email ?? ""), JSON.stringify(r.phone ?? ""), JSON.stringify(r.company ?? ""), JSON.stringify(r.jobTitle ?? ""), r.status, r.source, r.createdAt.toISOString()].join(","))].join("\n");
+    return { csv, count: rows.length };
+  })
+});
+
+// server/routers/conversations.ts
+import { and as and8, desc as desc4, eq as eq8, isNull as isNull6, like, or } from "drizzle-orm";
+import { TRPCError as TRPCError5 } from "@trpc/server";
+import { z as z7 } from "zod";
 
 // server/_core/llm.ts
 var ensureArray = (value) => Array.isArray(value) ? value : [value];
@@ -1274,7 +1638,7 @@ async function listLLMModels() {
 }
 
 // server/routers/conversations.ts
-var workspaceInput4 = z6.object({ workspaceId: z6.number().int().positive() });
+var workspaceInput5 = z7.object({ workspaceId: z7.number().int().positive() });
 function responseText(content) {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -1284,61 +1648,61 @@ function responseText(content) {
 }
 async function ensureConversation(workspaceId, conversationId) {
   const db = await requireDb();
-  const conversation = (await db.select().from(conversations).where(and7(eq7(conversations.id, conversationId), eq7(conversations.workspaceId, workspaceId), isNull5(conversations.deletedAt))).limit(1))[0];
+  const conversation = (await db.select().from(conversations).where(and8(eq8(conversations.id, conversationId), eq8(conversations.workspaceId, workspaceId), isNull6(conversations.deletedAt))).limit(1))[0];
   if (!conversation) throw new TRPCError5({ code: "NOT_FOUND", message: "Conversation not found in this workspace." });
   return conversation;
 }
 var conversationsRouter = router({
-  list: workspaceProcedure.input(workspaceInput4).query(async ({ ctx }) => {
+  list: workspaceProcedure.input(workspaceInput5).query(async ({ ctx }) => {
     const db = await requireDb();
-    return db.select().from(conversations).where(and7(eq7(conversations.workspaceId, ctx.workspaceId), isNull5(conversations.deletedAt))).orderBy(desc3(conversations.lastMessageAt));
+    return db.select().from(conversations).where(and8(eq8(conversations.workspaceId, ctx.workspaceId), isNull6(conversations.deletedAt))).orderBy(desc4(conversations.lastMessageAt));
   }),
-  create: workspaceMemberProcedure.input(workspaceInput4.extend({ title: z6.string().trim().min(2).max(255).default("New conversation") })).mutation(async ({ ctx, input }) => {
+  create: workspaceMemberProcedure.input(workspaceInput5.extend({ title: z7.string().trim().min(2).max(255).default("New conversation") })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
     const [row] = await db.insert(conversations).values({ workspaceId: ctx.workspaceId, title: input.title, createdById: ctx.user.id }).returning({ id: conversations.id });
     const id = row.id;
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "conversation.created", resourceType: "conversation", resourceId: id });
     return ensureConversation(ctx.workspaceId, id);
   }),
-  rename: workspaceMemberProcedure.input(workspaceInput4.extend({ conversationId: z6.number().int().positive(), title: z6.string().trim().min(2).max(255) })).mutation(async ({ ctx, input }) => {
+  rename: workspaceMemberProcedure.input(workspaceInput5.extend({ conversationId: z7.number().int().positive(), title: z7.string().trim().min(2).max(255) })).mutation(async ({ ctx, input }) => {
     await ensureConversation(ctx.workspaceId, input.conversationId);
     const db = await requireDb();
-    await db.update(conversations).set({ title: input.title }).where(and7(eq7(conversations.id, input.conversationId), eq7(conversations.workspaceId, ctx.workspaceId)));
+    await db.update(conversations).set({ title: input.title }).where(and8(eq8(conversations.id, input.conversationId), eq8(conversations.workspaceId, ctx.workspaceId)));
     return { success: true };
   }),
-  delete: workspaceMemberProcedure.input(workspaceInput4.extend({ conversationId: z6.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  delete: workspaceMemberProcedure.input(workspaceInput5.extend({ conversationId: z7.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const conversation = await ensureConversation(ctx.workspaceId, input.conversationId);
     if (conversation.createdById !== ctx.user.id && !["owner", "admin"].includes(ctx.workspaceRole)) {
       throw new TRPCError5({ code: "FORBIDDEN", message: "Only the conversation owner or a manager can delete it." });
     }
     const db = await requireDb();
-    await db.update(conversations).set({ deletedAt: /* @__PURE__ */ new Date() }).where(eq7(conversations.id, input.conversationId));
+    await db.update(conversations).set({ deletedAt: /* @__PURE__ */ new Date() }).where(eq8(conversations.id, input.conversationId));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "conversation.deleted", resourceType: "conversation", resourceId: input.conversationId });
     return { success: true };
   }),
-  messages: workspaceProcedure.input(workspaceInput4.extend({ conversationId: z6.number().int().positive() })).query(async ({ ctx, input }) => {
+  messages: workspaceProcedure.input(workspaceInput5.extend({ conversationId: z7.number().int().positive() })).query(async ({ ctx, input }) => {
     await ensureConversation(ctx.workspaceId, input.conversationId);
     const db = await requireDb();
-    const messageList = await db.select().from(messages).where(and7(eq7(messages.workspaceId, ctx.workspaceId), eq7(messages.conversationId, input.conversationId))).orderBy(messages.createdAt);
-    const sourceRows = messageList.length === 0 ? [] : await db.select().from(messageSources).where(eq7(messageSources.workspaceId, ctx.workspaceId));
+    const messageList = await db.select().from(messages).where(and8(eq8(messages.workspaceId, ctx.workspaceId), eq8(messages.conversationId, input.conversationId))).orderBy(messages.createdAt);
+    const sourceRows = messageList.length === 0 ? [] : await db.select().from(messageSources).where(eq8(messageSources.workspaceId, ctx.workspaceId));
     return messageList.map((message) => ({ ...message, sources: sourceRows.filter((source) => source.messageId === message.id) }));
   }),
-  search: workspaceProcedure.input(workspaceInput4.extend({ query: z6.string().trim().min(2).max(120), pageSize: z6.number().int().min(1).max(30).default(10) })).query(async ({ ctx, input }) => {
+  search: workspaceProcedure.input(workspaceInput5.extend({ query: z7.string().trim().min(2).max(120), pageSize: z7.number().int().min(1).max(30).default(10) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const phrase = `%${input.query}%`;
-    return db.select({ message: messages, conversation: conversations }).from(messages).innerJoin(conversations, eq7(messages.conversationId, conversations.id)).where(and7(eq7(messages.workspaceId, ctx.workspaceId), isNull5(conversations.deletedAt), or(like(messages.content, phrase), like(conversations.title, phrase)))).orderBy(desc3(messages.createdAt)).limit(input.pageSize);
+    return db.select({ message: messages, conversation: conversations }).from(messages).innerJoin(conversations, eq8(messages.conversationId, conversations.id)).where(and8(eq8(messages.workspaceId, ctx.workspaceId), isNull6(conversations.deletedAt), or(like(messages.content, phrase), like(conversations.title, phrase)))).orderBy(desc4(messages.createdAt)).limit(input.pageSize);
   })
 });
 var intelligenceRouter = router({
-  ask: workspaceMemberProcedure.input(workspaceInput4.extend({ conversationId: z6.number().int().positive(), question: z6.string().trim().min(3).max(4e3) })).mutation(async ({ ctx, input }) => {
+  ask: workspaceMemberProcedure.input(workspaceInput5.extend({ conversationId: z7.number().int().positive(), question: z7.string().trim().min(3).max(4e3) })).mutation(async ({ ctx, input }) => {
     await ensureConversation(ctx.workspaceId, input.conversationId);
     const db = await requireDb();
     const questionInsert = await db.insert(messages).values({ workspaceId: ctx.workspaceId, conversationId: input.conversationId, authorUserId: ctx.user.id, role: "user", kind: "question", content: input.question }).returning({ id: messages.id });
     const questionId = questionInsert[0].id;
     const [sourceRows, documentRows, history] = await Promise.all([
-      db.select({ id: dataSources.id, name: dataSources.name, type: dataSources.type }).from(dataSources).where(and7(eq7(dataSources.workspaceId, ctx.workspaceId), eq7(dataSources.status, "connected"), isNull5(dataSources.deletedAt))).limit(8),
-      db.select({ id: documents.id, name: documents.originalName }).from(documents).where(and7(eq7(documents.workspaceId, ctx.workspaceId), eq7(documents.status, "ready"), isNull5(documents.deletedAt))).limit(8),
-      db.select().from(messages).where(and7(eq7(messages.workspaceId, ctx.workspaceId), eq7(messages.conversationId, input.conversationId))).orderBy(desc3(messages.createdAt)).limit(12)
+      db.select({ id: dataSources.id, name: dataSources.name, type: dataSources.type }).from(dataSources).where(and8(eq8(dataSources.workspaceId, ctx.workspaceId), eq8(dataSources.status, "connected"), isNull6(dataSources.deletedAt))).limit(8),
+      db.select({ id: documents.id, name: documents.originalName }).from(documents).where(and8(eq8(documents.workspaceId, ctx.workspaceId), eq8(documents.status, "ready"), isNull6(documents.deletedAt))).limit(8),
+      db.select().from(messages).where(and8(eq8(messages.workspaceId, ctx.workspaceId), eq8(messages.conversationId, input.conversationId))).orderBy(desc4(messages.createdAt)).limit(12)
     ]);
     const sourceNames = [...sourceRows.map((source) => `${source.name} (${source.type})`), ...documentRows.map((document) => document.name)];
     try {
@@ -1360,7 +1724,7 @@ var intelligenceRouter = router({
         ...documentRows.map((document) => ({ messageId: answerId, workspaceId: ctx.workspaceId, label: document.name, sourceType: "document", sourceReference: String(document.id) }))
       ];
       if (sourceValues.length) await db.insert(messageSources).values(sourceValues);
-      await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date() }).where(eq7(conversations.id, input.conversationId));
+      await db.update(conversations).set({ lastMessageAt: /* @__PURE__ */ new Date() }).where(eq8(conversations.id, input.conversationId));
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "intelligence.asked", resourceType: "conversation", resourceId: input.conversationId, metadata: { questionId, answerId } });
       return { id: answerId, content, kind: "insight", sources: sourceValues.map((source) => ({ label: source.label, sourceType: source.sourceType, sourceReference: source.sourceReference })) };
     } catch (error) {
@@ -1371,10 +1735,10 @@ var intelligenceRouter = router({
 });
 
 // server/routers/dashboard.ts
-import { and as and8, desc as desc4, eq as eq8, gte as gte2, isNull as isNull6 } from "drizzle-orm";
-import { z as z7 } from "zod";
+import { and as and9, desc as desc5, eq as eq9, gte as gte2, isNull as isNull7 } from "drizzle-orm";
+import { z as z8 } from "zod";
 var ranges = { "7D": 7, "30D": 30, "90D": 90, "1Y": 365 };
-var inputSchema = z7.object({ workspaceId: z7.number().int().positive(), range: z7.enum(["7D", "30D", "90D", "1Y"]).default("1Y") });
+var inputSchema = z8.object({ workspaceId: z8.number().int().positive(), range: z8.enum(["7D", "30D", "90D", "1Y"]).default("1Y") });
 function startOfRange(range) {
   const date = /* @__PURE__ */ new Date();
   date.setUTCDate(date.getUTCDate() - ranges[range]);
@@ -1385,11 +1749,11 @@ var dashboardRouter = router({
     const db = await requireDb();
     const since = startOfRange(input.range);
     const [metrics, activeAgents, sourceList, signalList, recentActivity] = await Promise.all([
-      db.select().from(businessMetrics).where(and8(eq8(businessMetrics.workspaceId, ctx.workspaceId), gte2(businessMetrics.metricDate, since))),
-      db.select().from(agents).where(and8(eq8(agents.workspaceId, ctx.workspaceId), eq8(agents.status, "active"), isNull6(agents.deletedAt))),
-      db.select().from(dataSources).where(and8(eq8(dataSources.workspaceId, ctx.workspaceId), isNull6(dataSources.deletedAt))),
-      db.select().from(insights).where(and8(eq8(insights.workspaceId, ctx.workspaceId), eq8(insights.status, "open"))).orderBy(desc4(insights.createdAt)).limit(6),
-      db.select().from(auditLogs).where(eq8(auditLogs.workspaceId, ctx.workspaceId)).orderBy(desc4(auditLogs.createdAt)).limit(12)
+      db.select().from(businessMetrics).where(and9(eq9(businessMetrics.workspaceId, ctx.workspaceId), gte2(businessMetrics.metricDate, since))),
+      db.select().from(agents).where(and9(eq9(agents.workspaceId, ctx.workspaceId), eq9(agents.status, "active"), isNull7(agents.deletedAt))),
+      db.select().from(dataSources).where(and9(eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))),
+      db.select().from(insights).where(and9(eq9(insights.workspaceId, ctx.workspaceId), eq9(insights.status, "open"))).orderBy(desc5(insights.createdAt)).limit(6),
+      db.select().from(auditLogs).where(eq9(auditLogs.workspaceId, ctx.workspaceId)).orderBy(desc5(auditLogs.createdAt)).limit(12)
     ]);
     const revenue = metrics.filter((metric) => metric.metricKey === "revenue").reduce((total, metric) => total + Number(metric.metricValue), 0);
     const insightsToday = signalList.filter((signal) => signal.createdAt >= new Date(Date.now() - 24 * 60 * 60 * 1e3)).length;
@@ -1407,16 +1771,16 @@ var dashboardRouter = router({
       activity: recentActivity
     };
   }),
-  runSummary: workspaceProcedure.input(z7.object({ workspaceId: z7.number().int().positive(), limit: z7.number().int().min(1).max(30).default(8) })).query(async ({ ctx, input }) => {
+  runSummary: workspaceProcedure.input(z8.object({ workspaceId: z8.number().int().positive(), limit: z8.number().int().min(1).max(30).default(8) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
-    return db.select().from(agentRuns).where(eq8(agentRuns.workspaceId, ctx.workspaceId)).orderBy(desc4(agentRuns.createdAt)).limit(input.limit);
+    return db.select().from(agentRuns).where(eq9(agentRuns.workspaceId, ctx.workspaceId)).orderBy(desc5(agentRuns.createdAt)).limit(input.limit);
   })
 });
 
 // server/routers/data.ts
-import { and as and9, desc as desc5, eq as eq9, isNull as isNull7 } from "drizzle-orm";
+import { and as and10, desc as desc6, eq as eq10, isNull as isNull8 } from "drizzle-orm";
 import { TRPCError as TRPCError6 } from "@trpc/server";
-import { z as z8 } from "zod";
+import { z as z9 } from "zod";
 
 // server/crypto.ts
 import { createCipheriv, createDecipheriv, createHash as createHash2, randomBytes as randomBytes2 } from "node:crypto";
@@ -1482,10 +1846,10 @@ async function storageDelete(relKey) {
 }
 
 // server/routers/data.ts
-var workspaceInput5 = z8.object({ workspaceId: z8.number().int().positive() });
+var workspaceInput6 = z9.object({ workspaceId: z9.number().int().positive() });
 var acceptedMimeTypes = /* @__PURE__ */ new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "text/csv"]);
 var maximumUploadBytes = 10 * 1024 * 1024;
-var connectionInput = z8.object({ endpoint: z8.string().url().max(2e3), headers: z8.record(z8.string().max(120), z8.string().max(4096)).refine((value) => Object.keys(value).length <= 30, "At most 30 headers are allowed.").default({}) });
+var connectionInput = z9.object({ endpoint: z9.string().url().max(2e3), headers: z9.record(z9.string().max(120), z9.string().max(4096)).refine((value) => Object.keys(value).length <= 30, "At most 30 headers are allowed.").default({}) });
 function normalizedName(name) {
   return name.replace(/[\\/\u0000-\u001f]/g, "_").replace(/\s+/g, " ").trim().slice(0, 255);
 }
@@ -1501,61 +1865,61 @@ function mimeMatchesBytes(mimeType, bytes) {
   return mimeType === "text/csv" && !bytes.subarray(0, Math.min(bytes.length, 2048)).includes(0);
 }
 var dataSourcesRouter = router({
-  list: workspaceProcedure.input(workspaceInput5).query(async ({ ctx }) => {
+  list: workspaceProcedure.input(workspaceInput6).query(async ({ ctx }) => {
     const db = await requireDb();
-    const rows = await db.select().from(dataSources).where(and9(eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))).orderBy(desc5(dataSources.updatedAt));
+    const rows = await db.select().from(dataSources).where(and10(eq10(dataSources.workspaceId, ctx.workspaceId), isNull8(dataSources.deletedAt))).orderBy(desc6(dataSources.updatedAt));
     return rows.map(({ configuration, ...source }) => ({ ...source, configured: Boolean(configuration) }));
   }),
-  create: workspaceManagerProcedure.input(workspaceInput5.extend({ name: z8.string().trim().min(2).max(160), type: z8.string().trim().min(2).max(80) })).mutation(async ({ ctx, input }) => {
+  create: workspaceManagerProcedure.input(workspaceInput6.extend({ name: z9.string().trim().min(2).max(160), type: z9.string().trim().min(2).max(80) })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
     const [row] = await db.insert(dataSources).values({ workspaceId: ctx.workspaceId, name: input.name, type: input.type, status: "disconnected", createdById: ctx.user.id }).returning({ id: dataSources.id });
     const id = row.id;
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "data_source.created", resourceType: "dataSource", resourceId: id });
     return { id, status: "disconnected" };
   }),
-  configureHttp: workspaceManagerProcedure.input(workspaceInput5.extend({ dataSourceId: z8.number().int().positive(), connection: connectionInput })).mutation(async ({ ctx, input }) => {
+  configureHttp: workspaceManagerProcedure.input(workspaceInput6.extend({ dataSourceId: z9.number().int().positive(), connection: connectionInput })).mutation(async ({ ctx, input }) => {
     const endpoint = publicHttpsEndpoint(input.connection.endpoint);
     const db = await requireDb();
-    const source = (await db.select().from(dataSources).where(and9(eq9(dataSources.id, input.dataSourceId), eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))).limit(1))[0];
+    const source = (await db.select().from(dataSources).where(and10(eq10(dataSources.id, input.dataSourceId), eq10(dataSources.workspaceId, ctx.workspaceId), isNull8(dataSources.deletedAt))).limit(1))[0];
     if (!source) throw new TRPCError6({ code: "NOT_FOUND", message: "Data source not found in this workspace." });
-    await db.update(dataSources).set({ configuration: { mode: "http", secret: encryptJson({ endpoint: endpoint.toString(), headers: input.connection.headers }) }, status: "disconnected", lastError: null }).where(eq9(dataSources.id, source.id));
+    await db.update(dataSources).set({ configuration: { mode: "http", secret: encryptJson({ endpoint: endpoint.toString(), headers: input.connection.headers }) }, status: "disconnected", lastError: null }).where(eq10(dataSources.id, source.id));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "data_source.configured", resourceType: "dataSource", resourceId: source.id });
     return { success: true };
   }),
-  sync: workspaceMemberProcedure.input(workspaceInput5.extend({ dataSourceId: z8.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  sync: workspaceMemberProcedure.input(workspaceInput6.extend({ dataSourceId: z9.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    const source = (await db.select().from(dataSources).where(and9(eq9(dataSources.id, input.dataSourceId), eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))).limit(1))[0];
+    const source = (await db.select().from(dataSources).where(and10(eq10(dataSources.id, input.dataSourceId), eq10(dataSources.workspaceId, ctx.workspaceId), isNull8(dataSources.deletedAt))).limit(1))[0];
     if (!source?.configuration) throw new TRPCError6({ code: "CONFLICT", message: "Configure this data source before syncing it." });
     const [runRow] = await db.insert(dataSourceRuns).values({ workspaceId: ctx.workspaceId, dataSourceId: source.id, status: "pending", createdById: ctx.user.id }).returning({ id: dataSourceRuns.id });
     const runId = runRow.id;
-    await db.update(dataSources).set({ status: "syncing", lastError: null }).where(eq9(dataSources.id, source.id));
+    await db.update(dataSources).set({ status: "syncing", lastError: null }).where(eq10(dataSources.id, source.id));
     await enqueueJob({ workspaceId: ctx.workspaceId, type: "data-source.sync", payload: { dataSourceId: source.id, runId, workspaceId: ctx.workspaceId } });
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "data_source.sync_queued", resourceType: "dataSourceRun", resourceId: runId });
     return { id: runId, status: "pending" };
   }),
-  disconnect: workspaceManagerProcedure.input(workspaceInput5.extend({ dataSourceId: z8.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  disconnect: workspaceManagerProcedure.input(workspaceInput6.extend({ dataSourceId: z9.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    const source = (await db.select().from(dataSources).where(and9(eq9(dataSources.id, input.dataSourceId), eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))).limit(1))[0];
+    const source = (await db.select().from(dataSources).where(and10(eq10(dataSources.id, input.dataSourceId), eq10(dataSources.workspaceId, ctx.workspaceId), isNull8(dataSources.deletedAt))).limit(1))[0];
     if (!source) throw new TRPCError6({ code: "NOT_FOUND", message: "Data source not found in this workspace." });
-    await db.update(dataSources).set({ status: "disconnected" }).where(eq9(dataSources.id, input.dataSourceId));
+    await db.update(dataSources).set({ status: "disconnected" }).where(eq10(dataSources.id, input.dataSourceId));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "data_source.disconnected", resourceType: "dataSource", resourceId: input.dataSourceId });
     return { success: true };
   }),
-  delete: workspaceManagerProcedure.input(workspaceInput5.extend({ dataSourceId: z8.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  delete: workspaceManagerProcedure.input(workspaceInput6.extend({ dataSourceId: z9.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    const source = (await db.select().from(dataSources).where(and9(eq9(dataSources.id, input.dataSourceId), eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))).limit(1))[0];
+    const source = (await db.select().from(dataSources).where(and10(eq10(dataSources.id, input.dataSourceId), eq10(dataSources.workspaceId, ctx.workspaceId), isNull8(dataSources.deletedAt))).limit(1))[0];
     if (!source) throw new TRPCError6({ code: "NOT_FOUND", message: "Data source not found in this workspace." });
-    await db.update(dataSources).set({ status: "disconnected", configuration: null, deletedAt: /* @__PURE__ */ new Date() }).where(eq9(dataSources.id, source.id));
+    await db.update(dataSources).set({ status: "disconnected", configuration: null, deletedAt: /* @__PURE__ */ new Date() }).where(eq10(dataSources.id, source.id));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "data_source.deleted", resourceType: "dataSource", resourceId: source.id });
     return { success: true };
   })
 });
 var documentsRouter = router({
-  list: workspaceProcedure.input(workspaceInput5).query(async ({ ctx }) => {
+  list: workspaceProcedure.input(workspaceInput6).query(async ({ ctx }) => {
     const db = await requireDb();
-    return db.select().from(documents).where(and9(eq9(documents.workspaceId, ctx.workspaceId), isNull7(documents.deletedAt))).orderBy(desc5(documents.createdAt));
+    return db.select().from(documents).where(and10(eq10(documents.workspaceId, ctx.workspaceId), isNull8(documents.deletedAt))).orderBy(desc6(documents.createdAt));
   }),
-  upload: workspaceMemberProcedure.input(workspaceInput5.extend({ originalName: z8.string().min(1).max(255), mimeType: z8.string().max(120), dataBase64: z8.string().min(1) })).mutation(async ({ ctx, input }) => {
+  upload: workspaceMemberProcedure.input(workspaceInput6.extend({ originalName: z9.string().min(1).max(255), mimeType: z9.string().max(120), dataBase64: z9.string().min(1) })).mutation(async ({ ctx, input }) => {
     if (!acceptedMimeTypes.has(input.mimeType)) throw new TRPCError6({ code: "BAD_REQUEST", message: "This document type is not allowed." });
     const safeName = normalizedName(input.originalName);
     if (!safeName || !/^[A-Za-z0-9+/]+={0,2}$/.test(input.dataBase64)) throw new TRPCError6({ code: "BAD_REQUEST", message: "The upload payload is invalid." });
@@ -1570,32 +1934,476 @@ var documentsRouter = router({
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "document.uploaded", resourceType: "document", resourceId: id, metadata: { sizeBytes: bytes.length, mimeType: input.mimeType, processing: "queued" } });
     return { id, originalName: safeName, status: "processing", sizeBytes: bytes.length };
   }),
-  accessUrl: workspaceProcedure.input(workspaceInput5.extend({ documentId: z8.number().int().positive() })).query(async ({ ctx, input }) => {
+  accessUrl: workspaceProcedure.input(workspaceInput6.extend({ documentId: z9.number().int().positive() })).query(async ({ ctx, input }) => {
     const db = await requireDb();
-    const document = (await db.select().from(documents).where(and9(eq9(documents.id, input.documentId), eq9(documents.workspaceId, ctx.workspaceId), eq9(documents.status, "ready"), isNull7(documents.deletedAt))).limit(1))[0];
+    const document = (await db.select().from(documents).where(and10(eq10(documents.id, input.documentId), eq10(documents.workspaceId, ctx.workspaceId), eq10(documents.status, "ready"), isNull8(documents.deletedAt))).limit(1))[0];
     if (!document) throw new TRPCError6({ code: "NOT_FOUND", message: "Document not available in this workspace." });
     return storageGet(document.storageKey);
   }),
-  delete: workspaceManagerProcedure.input(workspaceInput5.extend({ documentId: z8.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  delete: workspaceManagerProcedure.input(workspaceInput6.extend({ documentId: z9.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    const document = (await db.select().from(documents).where(and9(eq9(documents.id, input.documentId), eq9(documents.workspaceId, ctx.workspaceId), isNull7(documents.deletedAt))).limit(1))[0];
+    const document = (await db.select().from(documents).where(and10(eq10(documents.id, input.documentId), eq10(documents.workspaceId, ctx.workspaceId), isNull8(documents.deletedAt))).limit(1))[0];
     if (!document) throw new TRPCError6({ code: "NOT_FOUND", message: "Document not found in this workspace." });
     await storageDelete(document.storageKey);
-    await db.update(documents).set({ status: "deleted", deletedAt: /* @__PURE__ */ new Date() }).where(eq9(documents.id, input.documentId));
+    await db.update(documents).set({ status: "deleted", deletedAt: /* @__PURE__ */ new Date() }).where(eq10(documents.id, input.documentId));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "document.deleted", resourceType: "document", resourceId: input.documentId });
     return { success: true };
   })
 });
-var memoryRouter = router({ summary: workspaceProcedure.input(workspaceInput5).query(async ({ ctx }) => {
+var memoryRouter = router({ summary: workspaceProcedure.input(workspaceInput6).query(async ({ ctx }) => {
   const db = await requireDb();
-  const [documentList, sourceList, chunks] = await Promise.all([db.select().from(documents).where(and9(eq9(documents.workspaceId, ctx.workspaceId), eq9(documents.status, "ready"), isNull7(documents.deletedAt))), db.select().from(dataSources).where(and9(eq9(dataSources.workspaceId, ctx.workspaceId), isNull7(dataSources.deletedAt))), db.select({ id: documentChunks.id }).from(documentChunks).where(eq9(documentChunks.workspaceId, ctx.workspaceId))]);
+  const [documentList, sourceList, chunks] = await Promise.all([db.select().from(documents).where(and10(eq10(documents.workspaceId, ctx.workspaceId), eq10(documents.status, "ready"), isNull8(documents.deletedAt))), db.select().from(dataSources).where(and10(eq10(dataSources.workspaceId, ctx.workspaceId), isNull8(dataSources.deletedAt))), db.select({ id: documentChunks.id }).from(documentChunks).where(eq10(documentChunks.workspaceId, ctx.workspaceId))]);
   return { documents: documentList.length, dataSources: sourceList.length, indexedChunks: chunks.length, indexingAvailable: chunks.length > 0 };
 }) });
 
+// server/routers/helpdesk.ts
+import { and as and11, count, desc as desc7, eq as eq11, sql as sql3 } from "drizzle-orm";
+import { z as z10 } from "zod";
+var workspaceInput7 = z10.object({ workspaceId: z10.number().int().positive() });
+var listInput2 = workspaceInput7.extend({
+  search: z10.string().trim().max(120).optional(),
+  status: z10.enum(["new", "open", "pending", "on_hold", "resolved", "closed"]).optional(),
+  assigneeId: z10.number().int().positive().nullable().optional(),
+  page: z10.number().int().min(1).default(1),
+  pageSize: z10.number().int().min(1).max(100).default(50)
+});
+var createInput2 = workspaceInput7.extend({
+  subject: z10.string().trim().min(1).max(255),
+  description: z10.string().trim().min(1).max(8e3),
+  priority: z10.enum(["low", "normal", "high", "urgent"]).default("normal"),
+  source: z10.string().trim().max(80).optional(),
+  requesterEmail: z10.string().email().max(320).optional().or(z10.literal("").transform(() => void 0)),
+  requesterName: z10.string().trim().max(160).optional(),
+  assigneeId: z10.number().int().positive().optional(),
+  tags: z10.array(z10.string().trim().max(40)).max(20).optional(),
+  initialMessage: z10.string().trim().min(1).max(8e3).optional()
+});
+var updateInput2 = workspaceInput7.extend({
+  ticketId: z10.number().int().positive(),
+  subject: z10.string().trim().min(1).max(255).optional(),
+  status: z10.enum(["new", "open", "pending", "on_hold", "resolved", "closed"]).optional(),
+  priority: z10.enum(["low", "normal", "high", "urgent"]).optional(),
+  assigneeId: z10.number().int().positive().nullable().optional(),
+  tags: z10.array(z10.string().trim().max(40)).max(20).optional()
+});
+var idInput2 = workspaceInput7.extend({ ticketId: z10.number().int().positive() });
+var messageInput = workspaceInput7.extend({
+  ticketId: z10.number().int().positive(),
+  content: z10.string().trim().min(1).max(8e3),
+  role: z10.enum(["customer", "agent", "system", "note"]).default("agent")
+});
+var helpdeskRouter = router({
+  listTickets: workspaceProcedure.input(listInput2).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const where = and11(
+      eq11(tickets.workspaceId, ctx.workspaceId),
+      input.status ? eq11(tickets.status, input.status) : void 0,
+      input.assigneeId !== void 0 ? input.assigneeId === null ? sql3`${tickets.assigneeId} IS NULL` : eq11(tickets.assigneeId, input.assigneeId) : void 0,
+      input.search ? sql3`(${tickets.subject} ILIKE ${`%${input.search}%`} OR ${tickets.requesterEmail} ILIKE ${`%${input.search}%`} OR ${tickets.requesterName} ILIKE ${`%${input.search}%`})` : void 0
+    );
+    const [rows, [{ totalCount } = { totalCount: 0 }]] = await Promise.all([
+      db.select().from(tickets).where(where).orderBy(desc7(tickets.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
+      db.select({ totalCount: sql3`count(*)::int` }).from(tickets).where(where)
+    ]);
+    return { items: rows, total: Number(totalCount), page: input.page, pageSize: input.pageSize };
+  }),
+  getTicket: workspaceProcedure.input(idInput2).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.select().from(tickets).where(and11(eq11(tickets.workspaceId, ctx.workspaceId), eq11(tickets.id, input.ticketId)));
+    return row ?? null;
+  }),
+  listMessages: workspaceProcedure.input(idInput2).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const rows = await db.select().from(ticketMessages).where(and11(eq11(ticketMessages.workspaceId, ctx.workspaceId), eq11(ticketMessages.ticketId, input.ticketId))).orderBy(ticketMessages.createdAt);
+    return rows;
+  }),
+  createTicket: workspaceMemberProcedure.input(createInput2).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [ticket] = await db.insert(tickets).values({
+      workspaceId: ctx.workspaceId,
+      subject: input.subject,
+      description: input.description,
+      priority: input.priority,
+      source: input.source ?? "dashboard",
+      requesterEmail: input.requesterEmail ?? null,
+      requesterName: input.requesterName ?? null,
+      assigneeId: input.assigneeId ?? null,
+      tags: input.tags ?? [],
+      createdById: ctx.user.id
+    }).returning();
+    if (ticket && input.initialMessage) {
+      await db.insert(ticketMessages).values({
+        ticketId: ticket.id,
+        workspaceId: ctx.workspaceId,
+        authorUserId: ctx.user.id,
+        authorName: input.requesterName ?? ctx.user.name ?? "Customer",
+        role: "customer",
+        content: input.initialMessage
+      });
+    }
+    return ticket;
+  }),
+  updateTicket: workspaceMemberProcedure.input(updateInput2).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { ticketId, ...patch } = input;
+    const updateValues = { updatedAt: /* @__PURE__ */ new Date() };
+    if (patch.subject !== void 0) updateValues.subject = patch.subject;
+    if (patch.status !== void 0) {
+      updateValues.status = patch.status;
+      if (patch.status === "resolved") updateValues.resolvedAt = /* @__PURE__ */ new Date();
+    }
+    if (patch.priority !== void 0) updateValues.priority = patch.priority;
+    if (patch.assigneeId !== void 0) updateValues.assigneeId = patch.assigneeId;
+    if (patch.tags !== void 0) updateValues.tags = patch.tags;
+    const [row] = await db.update(tickets).set(updateValues).where(and11(eq11(tickets.workspaceId, ctx.workspaceId), eq11(tickets.id, ticketId))).returning();
+    return row ?? null;
+  }),
+  addMessage: workspaceMemberProcedure.input(messageInput).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.insert(ticketMessages).values({
+      ticketId: input.ticketId,
+      workspaceId: ctx.workspaceId,
+      authorUserId: ctx.user.id,
+      authorName: ctx.user.name ?? "Agent",
+      role: input.role,
+      content: input.content
+    }).returning();
+    await db.update(tickets).set({ updatedAt: /* @__PURE__ */ new Date() }).where(eq11(tickets.id, input.ticketId));
+    return row;
+  }),
+  deleteTicket: workspaceManagerProcedure.input(idInput2).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.delete(tickets).where(and11(eq11(tickets.workspaceId, ctx.workspaceId), eq11(tickets.id, input.ticketId))).returning({ id: tickets.id });
+    return row ?? null;
+  }),
+  listInboxes: workspaceProcedure.input(workspaceInput7).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const statusCounts = await db.select({ status: tickets.status, total: count() }).from(tickets).where(eq11(tickets.workspaceId, ctx.workspaceId)).groupBy(tickets.status);
+    const counts = Object.fromEntries(statusCounts.map((s) => [s.status, Number(s.total)]));
+    return {
+      inboxes: [
+        { key: "all", label: "All", count: Object.values(counts).reduce((a, b) => a + b, 0) },
+        { key: "new", label: "New", count: counts["new"] ?? 0 },
+        { key: "open", label: "Open", count: counts["open"] ?? 0 },
+        { key: "pending", label: "Pending", count: counts["pending"] ?? 0 },
+        { key: "on_hold", label: "On hold", count: counts["on_hold"] ?? 0 },
+        { key: "resolved", label: "Resolved", count: counts["resolved"] ?? 0 },
+        { key: "closed", label: "Closed", count: counts["closed"] ?? 0 },
+        { key: "unassigned", label: "Unassigned", count: 0 },
+        { key: "assigned_to_me", label: "Assigned to me", count: 0 }
+      ]
+    };
+  })
+});
+
+// server/routers/channels.ts
+import { and as and12, desc as desc8, eq as eq12 } from "drizzle-orm";
+import { z as z11 } from "zod";
+var workspaceInput8 = z11.object({ workspaceId: z11.number().int().positive() });
+var DEFAULT_CHANNELS = [
+  { type: "widget", name: "Chat bubble", available: true, description: "Embed a chat bubble on your website." },
+  { type: "help_page", name: "Help page", available: true, description: "Public help center with articles and AI search." },
+  { type: "center_stage", name: "Center stage", available: true, description: "Full-screen conversational experience inside your product." },
+  { type: "messenger", name: "Messenger", available: false, description: "Connect your Facebook Messenger account." },
+  { type: "whatsapp", name: "WhatsApp", available: false, description: "Reach customers on WhatsApp Business." },
+  { type: "instagram", name: "Instagram", available: false, description: "Reply to Instagram DMs from your agent." },
+  { type: "slack", name: "Slack", available: true, description: "Use your agent inside Slack channels." },
+  { type: "email", name: "Email", available: true, description: "Auto-respond to inbound support emails." }
+];
+function buildEmbedCode(workspaceId, type) {
+  return `<!-- SOPRANOVA ${type} embed -->
+<script async src="https://cdn.sopranova.com/embed.js" data-workspace="${workspaceId}" data-channel="${type}"></script>`;
+}
+var channelsRouter = router({
+  list: workspaceProcedure.input(workspaceInput8).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const rows = await db.select().from(channels).where(eq12(channels.workspaceId, ctx.workspaceId)).orderBy(desc8(channels.createdAt));
+    const byType = new Map(rows.map((r) => [r.type, r]));
+    return DEFAULT_CHANNELS.map((def) => {
+      const existing = byType.get(def.type);
+      return {
+        type: def.type,
+        name: def.name,
+        description: def.description,
+        available: def.available,
+        status: existing?.status ?? "draft",
+        id: existing?.id ?? null,
+        embedCode: existing?.embedCode ?? (def.available ? buildEmbedCode(ctx.workspaceId, def.type) : null),
+        configuration: existing?.configuration ?? {},
+        createdAt: existing?.createdAt ?? null
+      };
+    });
+  }),
+  configure: workspaceManagerProcedure.input(workspaceInput8.extend({
+    type: z11.enum(["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]),
+    status: z11.enum(["active", "draft", "disabled"]).default("draft"),
+    name: z11.string().trim().max(160).optional(),
+    configuration: z11.record(z11.unknown()).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [existing] = await db.select().from(channels).where(and12(eq12(channels.workspaceId, ctx.workspaceId), eq12(channels.type, input.type)));
+    const embedCode = buildEmbedCode(ctx.workspaceId, input.type);
+    if (existing) {
+      const [row2] = await db.update(channels).set({
+        status: input.status,
+        name: input.name ?? existing.name,
+        configuration: input.configuration ?? existing.configuration,
+        embedCode,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq12(channels.id, existing.id)).returning();
+      return row2;
+    }
+    const [row] = await db.insert(channels).values({
+      workspaceId: ctx.workspaceId,
+      type: input.type,
+      name: input.name ?? DEFAULT_CHANNELS.find((d) => d.type === input.type)?.name ?? input.type,
+      status: input.status,
+      configuration: input.configuration ?? {},
+      embedCode,
+      createdById: ctx.user.id
+    }).returning();
+    return row;
+  }),
+  disable: workspaceManagerProcedure.input(workspaceInput8.extend({ type: z11.enum(["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]) })).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.update(channels).set({ status: "disabled", updatedAt: /* @__PURE__ */ new Date() }).where(and12(eq12(channels.workspaceId, ctx.workspaceId), eq12(channels.type, input.type))).returning();
+    return row ?? null;
+  }),
+  getEmbedCode: workspaceProcedure.input(workspaceInput8.extend({ type: z11.enum(["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]) })).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.select({ embedCode: channels.embedCode }).from(channels).where(and12(eq12(channels.workspaceId, ctx.workspaceId), eq12(channels.type, input.type)));
+    return { embedCode: row?.embedCode ?? buildEmbedCode(ctx.workspaceId, input.type) };
+  })
+});
+
+// server/routers/leads.ts
+import { and as and13, desc as desc9, eq as eq13, isNull as isNull9, sql as sql4 } from "drizzle-orm";
+import { z as z12 } from "zod";
+var workspaceInput9 = z12.object({ workspaceId: z12.number().int().positive() });
+var listInput3 = workspaceInput9.extend({
+  search: z12.string().trim().max(120).optional(),
+  status: z12.enum(["new", "contacted", "qualified", "converted", "lost"]).optional(),
+  page: z12.number().int().min(1).default(1),
+  pageSize: z12.number().int().min(1).max(100).default(50)
+});
+var createInput3 = workspaceInput9.extend({
+  name: z12.string().trim().min(1).max(160),
+  email: z12.string().email().max(320).optional().or(z12.literal("").transform(() => void 0)),
+  phone: z12.string().trim().max(64).optional(),
+  company: z12.string().trim().max(160).optional(),
+  source: z12.string().trim().max(80).optional(),
+  value: z12.number().nonnegative().optional(),
+  notes: z12.string().trim().max(2e3).optional(),
+  assignedToId: z12.number().int().positive().optional()
+});
+var updateInput3 = workspaceInput9.extend({
+  leadId: z12.number().int().positive(),
+  name: z12.string().trim().min(1).max(160).optional(),
+  email: z12.string().email().max(320).nullable().optional(),
+  phone: z12.string().trim().max(64).nullable().optional(),
+  company: z12.string().trim().max(160).nullable().optional(),
+  status: z12.enum(["new", "contacted", "qualified", "converted", "lost"]).optional(),
+  value: z12.number().nonnegative().optional(),
+  notes: z12.string().trim().max(2e3).nullable().optional(),
+  assignedToId: z12.number().int().positive().nullable().optional()
+});
+var idInput3 = workspaceInput9.extend({ leadId: z12.number().int().positive() });
+var leadsRouter = router({
+  list: workspaceProcedure.input(listInput3).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const where = and13(
+      eq13(leads.workspaceId, ctx.workspaceId),
+      isNull9(leads.deletedAt),
+      input.status ? eq13(leads.status, input.status) : void 0,
+      input.search ? sql4`(${leads.name} ILIKE ${`%${input.search}%`} OR ${leads.email} ILIKE ${`%${input.search}%`} OR ${leads.company} ILIKE ${`%${input.search}%`})` : void 0
+    );
+    const [rows, [{ count: count2 } = { count: 0 }]] = await Promise.all([
+      db.select().from(leads).where(where).orderBy(desc9(leads.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
+      db.select({ count: sql4`count(*)::int` }).from(leads).where(where)
+    ]);
+    return { items: rows.map((r) => ({ ...r, value: Number(r.value) })), total: Number(count2), page: input.page, pageSize: input.pageSize };
+  }),
+  get: workspaceProcedure.input(idInput3).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.select().from(leads).where(and13(eq13(leads.workspaceId, ctx.workspaceId), eq13(leads.id, input.leadId), isNull9(leads.deletedAt)));
+    if (!row) return null;
+    return { ...row, value: Number(row.value) };
+  }),
+  create: workspaceMemberProcedure.input(createInput3).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.insert(leads).values({
+      workspaceId: ctx.workspaceId,
+      name: input.name,
+      email: input.email ?? null,
+      phone: input.phone ?? null,
+      company: input.company ?? null,
+      source: input.source ?? "manual",
+      value: String(input.value ?? 0),
+      notes: input.notes ?? null,
+      assignedToId: input.assignedToId ?? null,
+      createdById: ctx.user.id
+    }).returning();
+    return row ? { ...row, value: Number(row.value) } : null;
+  }),
+  update: workspaceMemberProcedure.input(updateInput3).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { leadId, value, ...patch } = input;
+    const updateValues = { updatedAt: /* @__PURE__ */ new Date() };
+    if (patch.name !== void 0) updateValues.name = patch.name;
+    if (patch.email !== void 0) updateValues.email = patch.email;
+    if (patch.phone !== void 0) updateValues.phone = patch.phone;
+    if (patch.company !== void 0) updateValues.company = patch.company;
+    if (patch.status !== void 0) updateValues.status = patch.status;
+    if (patch.notes !== void 0) updateValues.notes = patch.notes;
+    if (patch.assignedToId !== void 0) updateValues.assignedToId = patch.assignedToId;
+    if (value !== void 0) updateValues.value = String(value);
+    const [row] = await db.update(leads).set(updateValues).where(and13(eq13(leads.workspaceId, ctx.workspaceId), eq13(leads.id, leadId), isNull9(leads.deletedAt))).returning();
+    return row ? { ...row, value: Number(row.value) } : null;
+  }),
+  delete: workspaceManagerProcedure.input(idInput3).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.update(leads).set({ deletedAt: /* @__PURE__ */ new Date() }).where(and13(eq13(leads.workspaceId, ctx.workspaceId), eq13(leads.id, input.leadId), isNull9(leads.deletedAt))).returning({ id: leads.id });
+    return row ?? null;
+  }),
+  convert: workspaceMemberProcedure.input(idInput3).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [lead] = await db.select().from(leads).where(and13(eq13(leads.workspaceId, ctx.workspaceId), eq13(leads.id, input.leadId), isNull9(leads.deletedAt)));
+    if (!lead) throw new Error("Lead not found");
+    const [contact] = await db.insert(contacts).values({
+      workspaceId: ctx.workspaceId,
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      company: lead.company,
+      source: `lead:${lead.source}`,
+      tags: ["converted-lead"],
+      createdById: ctx.user.id
+    }).returning();
+    await db.update(leads).set({ status: "converted", convertedToContactId: contact.id, updatedAt: /* @__PURE__ */ new Date() }).where(eq13(leads.id, lead.id));
+    return { contactId: contact.id };
+  }),
+  export: workspaceProcedure.input(workspaceInput9).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const rows = await db.select().from(leads).where(and13(eq13(leads.workspaceId, ctx.workspaceId), isNull9(leads.deletedAt))).orderBy(desc9(leads.createdAt));
+    const header = "id,name,email,phone,company,status,value,source,createdAt";
+    const csv = [header, ...rows.map((r) => [r.id, JSON.stringify(r.name), JSON.stringify(r.email ?? ""), JSON.stringify(r.phone ?? ""), JSON.stringify(r.company ?? ""), r.status, r.value, r.source, r.createdAt.toISOString()].join(","))].join("\n");
+    return { csv, count: rows.length };
+  })
+});
+
+// server/routers/outbound.ts
+import { and as and14, desc as desc10, eq as eq14, isNull as isNull10, sql as sql5 } from "drizzle-orm";
+import { z as z13 } from "zod";
+var workspaceInput10 = z13.object({ workspaceId: z13.number().int().positive() });
+var listInput4 = workspaceInput10.extend({
+  search: z13.string().trim().max(120).optional(),
+  type: z13.enum(["email", "sms", "scheduled", "automated"]).optional(),
+  status: z13.enum(["draft", "scheduled", "sending", "sent", "paused", "cancelled"]).optional(),
+  page: z13.number().int().min(1).default(1),
+  pageSize: z13.number().int().min(1).max(100).default(50)
+});
+var createInput4 = workspaceInput10.extend({
+  name: z13.string().trim().min(1).max(160),
+  type: z13.enum(["email", "sms", "scheduled", "automated"]),
+  subject: z13.string().trim().max(255).optional(),
+  body: z13.string().trim().max(2e4).optional(),
+  recipientCount: z13.number().int().nonnegative().default(0),
+  scheduledAt: z13.date().optional(),
+  metadata: z13.record(z13.unknown()).optional()
+});
+var updateInput4 = workspaceInput10.extend({
+  campaignId: z13.number().int().positive(),
+  name: z13.string().trim().min(1).max(160).optional(),
+  subject: z13.string().trim().max(255).nullable().optional(),
+  body: z13.string().trim().max(2e4).nullable().optional(),
+  status: z13.enum(["draft", "scheduled", "sending", "sent", "paused", "cancelled"]).optional(),
+  scheduledAt: z13.date().nullable().optional()
+});
+var idInput4 = workspaceInput10.extend({ campaignId: z13.number().int().positive() });
+var outboundRouter = router({
+  listCampaigns: workspaceProcedure.input(listInput4).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const where = and14(
+      eq14(campaigns.workspaceId, ctx.workspaceId),
+      isNull10(campaigns.deletedAt),
+      input.type ? eq14(campaigns.type, input.type) : void 0,
+      input.status ? eq14(campaigns.status, input.status) : void 0,
+      input.search ? sql5`${campaigns.name} ILIKE ${`%${input.search}%`}` : void 0
+    );
+    const [rows, [{ count: count2 } = { count: 0 }]] = await Promise.all([
+      db.select().from(campaigns).where(where).orderBy(desc10(campaigns.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
+      db.select({ count: sql5`count(*)::int` }).from(campaigns).where(where)
+    ]);
+    return { items: rows, total: Number(count2), page: input.page, pageSize: input.pageSize };
+  }),
+  getCampaign: workspaceProcedure.input(idInput4).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.select().from(campaigns).where(and14(eq14(campaigns.workspaceId, ctx.workspaceId), eq14(campaigns.id, input.campaignId), isNull10(campaigns.deletedAt)));
+    return row ?? null;
+  }),
+  createCampaign: workspaceManagerProcedure.input(createInput4).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.insert(campaigns).values({
+      workspaceId: ctx.workspaceId,
+      name: input.name,
+      type: input.type,
+      subject: input.subject ?? null,
+      body: input.body ?? null,
+      recipientCount: input.recipientCount,
+      status: input.scheduledAt ? "scheduled" : "draft",
+      scheduledAt: input.scheduledAt ?? null,
+      metadata: input.metadata ?? {},
+      createdById: ctx.user.id
+    }).returning();
+    return row;
+  }),
+  updateCampaign: workspaceManagerProcedure.input(updateInput4).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const { campaignId, ...patch } = input;
+    const updateValues = { updatedAt: /* @__PURE__ */ new Date() };
+    if (patch.name !== void 0) updateValues.name = patch.name;
+    if (patch.subject !== void 0) updateValues.subject = patch.subject;
+    if (patch.body !== void 0) updateValues.body = patch.body;
+    if (patch.status !== void 0) updateValues.status = patch.status;
+    if (patch.scheduledAt !== void 0) updateValues.scheduledAt = patch.scheduledAt;
+    const [row] = await db.update(campaigns).set(updateValues).where(and14(eq14(campaigns.workspaceId, ctx.workspaceId), eq14(campaigns.id, campaignId), isNull10(campaigns.deletedAt))).returning();
+    return row ?? null;
+  }),
+  sendCampaign: workspaceMemberProcedure.input(idInput4).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.update(campaigns).set({ status: "sending", updatedAt: /* @__PURE__ */ new Date() }).where(and14(eq14(campaigns.workspaceId, ctx.workspaceId), eq14(campaigns.id, input.campaignId), isNull10(campaigns.deletedAt))).returning();
+    return row ?? null;
+  }),
+  deleteCampaign: workspaceManagerProcedure.input(idInput4).mutation(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [row] = await db.update(campaigns).set({ deletedAt: /* @__PURE__ */ new Date() }).where(and14(eq14(campaigns.workspaceId, ctx.workspaceId), eq14(campaigns.id, input.campaignId), isNull10(campaigns.deletedAt))).returning({ id: campaigns.id });
+    return row ?? null;
+  }),
+  campaignStats: workspaceProcedure.input(workspaceInput10).query(async ({ ctx, input }) => {
+    const db = await requireDb();
+    const [totals] = await db.select({
+      total: sql5`count(*)::int`,
+      sent: sql5`coalesce(sum(${campaigns.sentCount}), 0)::int`,
+      delivered: sql5`coalesce(sum(${campaigns.deliveredCount}), 0)::int`,
+      opened: sql5`coalesce(sum(${campaigns.openedCount}), 0)::int`,
+      clicked: sql5`coalesce(sum(${campaigns.clickedCount}), 0)::int`,
+      recipients: sql5`coalesce(sum(${campaigns.recipientCount}), 0)::int`
+    }).from(campaigns).where(and14(eq14(campaigns.workspaceId, ctx.workspaceId), isNull10(campaigns.deletedAt)));
+    return {
+      totalCampaigns: Number(totals?.total ?? 0),
+      totalRecipients: Number(totals?.recipients ?? 0),
+      totalSent: Number(totals?.sent ?? 0),
+      totalDelivered: Number(totals?.delivered ?? 0),
+      totalOpened: Number(totals?.opened ?? 0),
+      totalClicked: Number(totals?.clicked ?? 0)
+    };
+  })
+});
+
 // server/routers/workspaces.ts
-import { and as and10, eq as eq10, isNull as isNull8 } from "drizzle-orm";
-import { z as z9 } from "zod";
-var workspaceIdInput2 = z9.object({ workspaceId: z9.number().int().positive() });
+import { and as and15, eq as eq15, isNull as isNull11 } from "drizzle-orm";
+import { z as z14 } from "zod";
+var workspaceIdInput2 = z14.object({ workspaceId: z14.number().int().positive() });
 var workspacesRouter = router({
   list: protectedProcedure.query(({ ctx }) => listWorkspacesForUser(ctx.user.id)),
   bootstrap: protectedProcedure.mutation(async ({ ctx }) => {
@@ -1612,26 +2420,26 @@ var workspacesRouter = router({
   members: workspaceProcedure.input(workspaceIdInput2).query(({ ctx }) => listWorkspaceMembers(ctx.workspaceId)),
   completeOnboarding: workspaceManagerProcedure.input(
     workspaceIdInput2.extend({
-      organizationName: z9.string().trim().min(2).max(160),
-      workspaceName: z9.string().trim().min(2).max(160).optional(),
-      companySize: z9.string().trim().max(32).optional(),
-      jobTitle: z9.string().trim().max(160).optional(),
-      agentName: z9.string().trim().min(2).max(160).optional(),
-      agentPersonality: z9.string().trim().max(8e3).optional(),
-      deploymentChannels: z9.array(z9.string().trim().min(1).max(40)).max(20).optional(),
-      techStack: z9.array(z9.string().trim().min(1).max(80)).max(40).optional(),
-      referralSource: z9.string().trim().max(120).optional(),
-      plan: z9.string().trim().max(60).optional()
+      organizationName: z14.string().trim().min(2).max(160),
+      workspaceName: z14.string().trim().min(2).max(160).optional(),
+      companySize: z14.string().trim().max(32).optional(),
+      jobTitle: z14.string().trim().max(160).optional(),
+      agentName: z14.string().trim().min(2).max(160).optional(),
+      agentPersonality: z14.string().trim().max(8e3).optional(),
+      deploymentChannels: z14.array(z14.string().trim().min(1).max(40)).max(20).optional(),
+      techStack: z14.array(z14.string().trim().min(1).max(80)).max(40).optional(),
+      referralSource: z14.string().trim().max(120).optional(),
+      plan: z14.string().trim().max(60).optional()
     })
   ).mutation(async ({ ctx, input }) => {
     console.log("[completeOnboarding] userId:", ctx.user.id, "workspaceId:", ctx.workspaceId, "input:", JSON.stringify(input).substring(0, 200));
     const db = await requireDb();
-    const workspace = (await db.select().from(workspaces).where(and10(eq10(workspaces.id, ctx.workspaceId), isNull8(workspaces.deletedAt))).limit(1))[0];
+    const workspace = (await db.select().from(workspaces).where(and15(eq15(workspaces.id, ctx.workspaceId), isNull11(workspaces.deletedAt))).limit(1))[0];
     if (!workspace) {
       console.log("[completeOnboarding] workspace not found!");
       return null;
     }
-    await db.update(organizations).set({ name: input.organizationName, companySize: input.companySize ?? null }).where(eq10(organizations.id, workspace.organizationId));
+    await db.update(organizations).set({ name: input.organizationName, companySize: input.companySize ?? null }).where(eq15(organizations.id, workspace.organizationId));
     await db.update(workspaces).set({
       name: input.workspaceName ?? workspace.name,
       onboardingCompleted: true,
@@ -1645,15 +2453,15 @@ var workspacesRouter = router({
         plan: input.plan ?? "free",
         completedAt: (/* @__PURE__ */ new Date()).toISOString()
       }
-    }).where(eq10(workspaces.id, ctx.workspaceId));
+    }).where(eq15(workspaces.id, ctx.workspaceId));
     if (input.jobTitle !== void 0) {
-      await db.update(users).set({ jobTitle: input.jobTitle || null }).where(eq10(users.id, ctx.user.id));
+      await db.update(users).set({ jobTitle: input.jobTitle || null }).where(eq15(users.id, ctx.user.id));
     }
     let createdAgentId = null;
     const agentName = input.agentName?.trim() || "SOPRANOVA";
     const purpose = input.agentPersonality?.trim() || "Answer customer questions clearly and concisely. Stay polite and professional. Escalate billing or account issues to a human agent when unsure.";
     const capabilities = input.deploymentChannels?.length ? input.deploymentChannels : ["chat"];
-    const existingAgent = (await db.select().from(agents).where(and10(eq10(agents.workspaceId, ctx.workspaceId), eq10(agents.name, agentName), isNull8(agents.deletedAt))).limit(1))[0];
+    const existingAgent = (await db.select().from(agents).where(and15(eq15(agents.workspaceId, ctx.workspaceId), eq15(agents.name, agentName), isNull11(agents.deletedAt))).limit(1))[0];
     if (!existingAgent) {
       const created = await db.insert(agents).values({
         workspaceId: ctx.workspaceId,
@@ -1683,15 +2491,15 @@ var workspacesRouter = router({
     });
     return { success: true, agentId: createdAgentId };
   }),
-  update: workspaceManagerProcedure.input(workspaceIdInput2.extend({ name: z9.string().trim().min(2).max(160) })).mutation(async ({ ctx, input }) => {
+  update: workspaceManagerProcedure.input(workspaceIdInput2.extend({ name: z14.string().trim().min(2).max(160) })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    await db.update(workspaces).set({ name: input.name }).where(eq10(workspaces.id, ctx.workspaceId));
+    await db.update(workspaces).set({ name: input.name }).where(eq15(workspaces.id, ctx.workspaceId));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workspace.updated", resourceType: "workspace", resourceId: ctx.workspaceId });
     return { success: true };
   }),
   getOnboarding: workspaceProcedure.input(workspaceIdInput2).query(async ({ ctx }) => {
     const db = await requireDb();
-    const workspace = (await db.select().from(workspaces).where(and10(eq10(workspaces.id, ctx.workspaceId), isNull8(workspaces.deletedAt))).limit(1))[0];
+    const workspace = (await db.select().from(workspaces).where(and15(eq15(workspaces.id, ctx.workspaceId), isNull11(workspaces.deletedAt))).limit(1))[0];
     if (!workspace) return null;
     return {
       completed: workspace.onboardingCompleted,
@@ -1701,16 +2509,16 @@ var workspacesRouter = router({
   }),
   saveOnboardingStep: workspaceProcedure.input(
     workspaceIdInput2.extend({
-      step: z9.number().int().min(0).max(10),
-      data: z9.record(z9.string(), z9.unknown()).optional(),
-      completed: z9.boolean().optional()
+      step: z14.number().int().min(0).max(10),
+      data: z14.record(z14.string(), z14.unknown()).optional(),
+      completed: z14.boolean().optional()
     })
   ).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
     const update = { onboardingStep: input.step };
     if (input.data !== void 0) update.onboardingData = input.data;
     if (input.completed !== void 0) update.onboardingCompleted = input.completed;
-    await db.update(workspaces).set(update).where(eq10(workspaces.id, ctx.workspaceId));
+    await db.update(workspaces).set(update).where(eq15(workspaces.id, ctx.workspaceId));
     if (input.completed) {
       await writeAuditLog({
         workspaceId: ctx.workspaceId,
@@ -1727,27 +2535,27 @@ var workspacesRouter = router({
 var preferencesRouter = router({
   get: workspaceProcedure.input(workspaceIdInput2).query(async ({ ctx }) => {
     const db = await requireDb();
-    const profile = (await db.select().from(users).where(eq10(users.id, ctx.user.id)).limit(1))[0] ?? null;
-    const preferences = (await db.select().from(userPreferences).where(and10(eq10(userPreferences.userId, ctx.user.id), eq10(userPreferences.workspaceId, ctx.workspaceId))).limit(1))[0] ?? null;
+    const profile = (await db.select().from(users).where(eq15(users.id, ctx.user.id)).limit(1))[0] ?? null;
+    const preferences = (await db.select().from(userPreferences).where(and15(eq15(userPreferences.userId, ctx.user.id), eq15(userPreferences.workspaceId, ctx.workspaceId))).limit(1))[0] ?? null;
     return { profile, preferences };
   }),
-  updateProfile: protectedProcedure.input(z9.object({ name: z9.string().trim().min(2).max(160), jobTitle: z9.string().trim().max(160).nullable().optional() })).mutation(async ({ ctx, input }) => {
+  updateProfile: protectedProcedure.input(z14.object({ name: z14.string().trim().min(2).max(160), jobTitle: z14.string().trim().max(160).nullable().optional() })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    await db.update(users).set({ name: input.name, jobTitle: input.jobTitle ?? null }).where(eq10(users.id, ctx.user.id));
+    await db.update(users).set({ name: input.name, jobTitle: input.jobTitle ?? null }).where(eq15(users.id, ctx.user.id));
     return { success: true };
   }),
   update: workspaceProcedure.input(
     workspaceIdInput2.extend({
-      emailNotifications: z9.boolean().optional(),
-      slackNotifications: z9.boolean().optional(),
-      weeklyDigest: z9.boolean().optional(),
-      agentNotifications: z9.boolean().optional(),
-      anomalyNotifications: z9.boolean().optional(),
-      reportNotifications: z9.boolean().optional(),
-      extendedContextWindow: z9.boolean().optional(),
-      citeSources: z9.boolean().optional(),
-      proactiveInsights: z9.boolean().optional(),
-      responseTone: z9.enum(["concise", "professional", "detailed"]).optional()
+      emailNotifications: z14.boolean().optional(),
+      slackNotifications: z14.boolean().optional(),
+      weeklyDigest: z14.boolean().optional(),
+      agentNotifications: z14.boolean().optional(),
+      anomalyNotifications: z14.boolean().optional(),
+      reportNotifications: z14.boolean().optional(),
+      extendedContextWindow: z14.boolean().optional(),
+      citeSources: z14.boolean().optional(),
+      proactiveInsights: z14.boolean().optional(),
+      responseTone: z14.enum(["concise", "professional", "detailed"]).optional()
     })
   ).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
@@ -1758,39 +2566,39 @@ var preferencesRouter = router({
 });
 
 // server/routers/workflows.ts
-import { and as and11, desc as desc6, eq as eq11, isNull as isNull9 } from "drizzle-orm";
+import { and as and16, desc as desc11, eq as eq16, isNull as isNull12 } from "drizzle-orm";
 import { TRPCError as TRPCError7 } from "@trpc/server";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { z as z10 } from "zod";
-var workspaceInput6 = z10.object({ workspaceId: z10.number().int().positive() });
-var nodeInput = z10.object({
-  nodeKey: z10.string().trim().min(1).max(80),
-  nodeType: z10.enum(["trigger", "intelligence", "condition", "action"]),
-  label: z10.string().trim().min(1).max(160),
-  description: z10.string().trim().max(2e3).optional(),
-  positionX: z10.number().int().min(-1e4).max(1e4).default(0),
-  positionY: z10.number().int().min(-1e4).max(1e4).default(0),
-  sortOrder: z10.number().int().min(0).max(1e3).default(0),
-  configuration: z10.record(z10.string(), z10.unknown()).optional()
+import { z as z15 } from "zod";
+var workspaceInput11 = z15.object({ workspaceId: z15.number().int().positive() });
+var nodeInput = z15.object({
+  nodeKey: z15.string().trim().min(1).max(80),
+  nodeType: z15.enum(["trigger", "intelligence", "condition", "action"]),
+  label: z15.string().trim().min(1).max(160),
+  description: z15.string().trim().max(2e3).optional(),
+  positionX: z15.number().int().min(-1e4).max(1e4).default(0),
+  positionY: z15.number().int().min(-1e4).max(1e4).default(0),
+  sortOrder: z15.number().int().min(0).max(1e3).default(0),
+  configuration: z15.record(z15.string(), z15.unknown()).optional()
 });
 async function ensureWorkflow(workspaceId, workflowId) {
   const db = await requireDb();
-  const workflow = (await db.select().from(workflows).where(and11(eq11(workflows.id, workflowId), eq11(workflows.workspaceId, workspaceId), isNull9(workflows.deletedAt))).limit(1))[0];
+  const workflow = (await db.select().from(workflows).where(and16(eq16(workflows.id, workflowId), eq16(workflows.workspaceId, workspaceId), isNull12(workflows.deletedAt))).limit(1))[0];
   if (!workflow) throw new TRPCError7({ code: "NOT_FOUND", message: "Workflow not found in this workspace." });
   return workflow;
 }
 var workflowsRouter = router({
-  list: workspaceProcedure.input(workspaceInput6).query(async ({ ctx }) => {
+  list: workspaceProcedure.input(workspaceInput11).query(async ({ ctx }) => {
     const db = await requireDb();
-    return db.select().from(workflows).where(and11(eq11(workflows.workspaceId, ctx.workspaceId), isNull9(workflows.deletedAt))).orderBy(desc6(workflows.updatedAt));
+    return db.select().from(workflows).where(and16(eq16(workflows.workspaceId, ctx.workspaceId), isNull12(workflows.deletedAt))).orderBy(desc11(workflows.updatedAt));
   }),
-  get: workspaceProcedure.input(workspaceInput6.extend({ workflowId: z10.number().int().positive() })).query(async ({ ctx, input }) => {
+  get: workspaceProcedure.input(workspaceInput11.extend({ workflowId: z15.number().int().positive() })).query(async ({ ctx, input }) => {
     const workflow = await ensureWorkflow(ctx.workspaceId, input.workflowId);
     const db = await requireDb();
-    const nodes = await db.select().from(workflowNodes).where(eq11(workflowNodes.workflowId, workflow.id)).orderBy(workflowNodes.sortOrder);
+    const nodes = await db.select().from(workflowNodes).where(eq16(workflowNodes.workflowId, workflow.id)).orderBy(workflowNodes.sortOrder);
     return { workflow, nodes };
   }),
-  create: workspaceManagerProcedure.input(workspaceInput6.extend({ name: z10.string().trim().min(2).max(160), description: z10.string().trim().max(4e3).optional(), nodes: z10.array(nodeInput).min(1).max(50) })).mutation(async ({ ctx, input }) => {
+  create: workspaceManagerProcedure.input(workspaceInput11.extend({ name: z15.string().trim().min(2).max(160), description: z15.string().trim().max(4e3).optional(), nodes: z15.array(nodeInput).min(1).max(50) })).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
     const [workflowRow] = await db.insert(workflows).values({ workspaceId: ctx.workspaceId, name: input.name, description: input.description, createdById: ctx.user.id }).returning({ id: workflows.id });
     const workflowId = workflowRow.id;
@@ -1798,15 +2606,15 @@ var workflowsRouter = router({
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workflow.created", resourceType: "workflow", resourceId: workflowId });
     return { id: workflowId };
   }),
-  update: workspaceManagerProcedure.input(workspaceInput6.extend({ workflowId: z10.number().int().positive(), name: z10.string().trim().min(2).max(160).optional(), description: z10.string().trim().max(4e3).nullable().optional(), status: z10.enum(["active", "paused", "draft", "archived"]).optional() })).mutation(async ({ ctx, input }) => {
+  update: workspaceManagerProcedure.input(workspaceInput11.extend({ workflowId: z15.number().int().positive(), name: z15.string().trim().min(2).max(160).optional(), description: z15.string().trim().max(4e3).nullable().optional(), status: z15.enum(["active", "paused", "draft", "archived"]).optional() })).mutation(async ({ ctx, input }) => {
     await ensureWorkflow(ctx.workspaceId, input.workflowId);
     const db = await requireDb();
     const { workspaceId: _workspaceId, workflowId, ...changes } = input;
-    await db.update(workflows).set(changes).where(and11(eq11(workflows.id, workflowId), eq11(workflows.workspaceId, ctx.workspaceId)));
+    await db.update(workflows).set(changes).where(and16(eq16(workflows.id, workflowId), eq16(workflows.workspaceId, ctx.workspaceId)));
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workflow.updated", resourceType: "workflow", resourceId: workflowId });
     return { success: true };
   }),
-  runNow: workspaceMemberProcedure.input(workspaceInput6.extend({ workflowId: z10.number().int().positive() })).mutation(async ({ ctx, input }) => {
+  runNow: workspaceMemberProcedure.input(workspaceInput11.extend({ workflowId: z15.number().int().positive() })).mutation(async ({ ctx, input }) => {
     const workflow = await ensureWorkflow(ctx.workspaceId, input.workflowId);
     if (workflow.status === "archived") throw new TRPCError7({ code: "CONFLICT", message: "Archived workflows cannot be executed." });
     const db = await requireDb();
@@ -1817,23 +2625,23 @@ var workflowsRouter = router({
     await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workflow.run_queued", resourceType: "workflowRun", resourceId: runId, metadata: { workflowId: workflow.id } });
     return { id: runId, status: "pending" };
   }),
-  runs: workspaceProcedure.input(workspaceInput6.extend({ workflowId: z10.number().int().positive(), pageSize: z10.number().int().min(1).max(50).default(20) })).query(async ({ ctx, input }) => {
+  runs: workspaceProcedure.input(workspaceInput11.extend({ workflowId: z15.number().int().positive(), pageSize: z15.number().int().min(1).max(50).default(20) })).query(async ({ ctx, input }) => {
     await ensureWorkflow(ctx.workspaceId, input.workflowId);
     const db = await requireDb();
-    return db.select().from(workflowRuns).where(and11(eq11(workflowRuns.workspaceId, ctx.workspaceId), eq11(workflowRuns.workflowId, input.workflowId))).orderBy(desc6(workflowRuns.createdAt)).limit(input.pageSize);
+    return db.select().from(workflowRuns).where(and16(eq16(workflowRuns.workspaceId, ctx.workspaceId), eq16(workflowRuns.workflowId, input.workflowId))).orderBy(desc11(workflowRuns.createdAt)).limit(input.pageSize);
   })
 });
 
 // server/routers.ts
-var credentialsInput = z11.object({
-  email: z11.string().trim().email().max(320),
-  password: z11.string().min(12, "Use at least 12 characters.").max(128)
+var credentialsInput = z16.object({
+  email: z16.string().trim().email().max(320),
+  password: z16.string().min(12, "Use at least 12 characters.").max(128)
 });
 var appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(({ ctx }) => ctx.user ? publicUser(ctx.user) : null),
-    register: publicProcedure.input(credentialsInput.extend({ name: z11.string().trim().min(2).max(160), organizationName: z11.string().trim().min(2).max(180).optional() })).mutation(async ({ ctx, input }) => {
+    register: publicProcedure.input(credentialsInput.extend({ name: z16.string().trim().min(2).max(160), organizationName: z16.string().trim().min(2).max(180).optional() })).mutation(async ({ ctx, input }) => {
       try {
         const user = await registerWithPassword(input);
         await bootstrapWorkspace(user, input.organizationName);
@@ -1852,11 +2660,11 @@ var appRouter = router({
       ctx.res.cookie(SESSION_COOKIE, session.token, sessionCookieOptions(session.expiresAt));
       return publicUser(user);
     }),
-    requestPasswordReset: publicProcedure.input(z11.object({ email: z11.string().trim().email().max(320) })).mutation(async ({ input }) => {
+    requestPasswordReset: publicProcedure.input(z16.object({ email: z16.string().trim().email().max(320) })).mutation(async ({ input }) => {
       await requestPasswordReset(input.email);
       return { accepted: true };
     }),
-    resetPassword: publicProcedure.input(z11.object({ token: z11.string().min(20).max(200), password: z11.string().min(12).max(128) })).mutation(async ({ input }) => {
+    resetPassword: publicProcedure.input(z16.object({ token: z16.string().min(20).max(200), password: z16.string().min(12).max(128) })).mutation(async ({ input }) => {
       try {
         return await resetPassword(input.token, input.password);
       } catch (error) {
@@ -1883,11 +2691,16 @@ var appRouter = router({
   analytics: analyticsRouter,
   workflows: workflowsRouter,
   notifications: notificationsRouter,
-  audit: auditRouter
+  audit: auditRouter,
+  contacts: contactsRouter,
+  leads: leadsRouter,
+  helpdesk: helpdeskRouter,
+  channels: channelsRouter,
+  outbound: outboundRouter
 });
 
 // server/oauth.ts
-import { and as and12, eq as eq12, or as or2 } from "drizzle-orm";
+import { and as and17, eq as eq17, or as or2 } from "drizzle-orm";
 import { createHmac, randomBytes as randomBytes3, timingSafeEqual } from "node:crypto";
 function encodeState(state) {
   const payload = Buffer.from(JSON.stringify(state)).toString("base64url");
@@ -1936,16 +2749,16 @@ function registerOAuthRoutes(app) {
       const profile = await profileResponse.json();
       if (!profile.sub || !profile.email || !profile.email_verified) throw new Error("Google account does not expose a verified email");
       const db = await requireDb();
-      const existingAccount = (await db.select().from(oauthAccounts).where(and12(eq12(oauthAccounts.provider, "google"), eq12(oauthAccounts.providerAccountId, profile.sub))).limit(1))[0];
-      let user = existingAccount ? (await db.select().from(users).where(eq12(users.id, existingAccount.userId)).limit(1))[0] : void 0;
-      if (!user) user = (await db.select().from(users).where(or2(eq12(users.email, profile.email.toLowerCase()), eq12(users.openId, profile.sub))).limit(1))[0];
+      const existingAccount = (await db.select().from(oauthAccounts).where(and17(eq17(oauthAccounts.provider, "google"), eq17(oauthAccounts.providerAccountId, profile.sub))).limit(1))[0];
+      let user = existingAccount ? (await db.select().from(users).where(eq17(users.id, existingAccount.userId)).limit(1))[0] : void 0;
+      if (!user) user = (await db.select().from(users).where(or2(eq17(users.email, profile.email.toLowerCase()), eq17(users.openId, profile.sub))).limit(1))[0];
       if (!user) {
         const [insert] = await db.insert(users).values({ openId: profile.sub, email: profile.email.toLowerCase(), name: profile.name ?? profile.email.split("@")[0], avatarUrl: profile.picture, loginMethod: "google", authProvider: "google", role: "user", lastSignedIn: /* @__PURE__ */ new Date() }).returning({ id: users.id });
-        user = (await db.select().from(users).where(eq12(users.id, insert.id)).limit(1))[0];
+        user = (await db.select().from(users).where(eq17(users.id, insert.id)).limit(1))[0];
       }
       if (!user) throw new Error("Unable to create account");
       if (!existingAccount) await db.insert(oauthAccounts).values({ userId: user.id, provider: "google", providerAccountId: profile.sub });
-      await db.update(users).set({ lastSignedIn: /* @__PURE__ */ new Date(), name: user.name ?? profile.name, avatarUrl: user.avatarUrl ?? profile.picture, authProvider: "google" }).where(eq12(users.id, user.id));
+      await db.update(users).set({ lastSignedIn: /* @__PURE__ */ new Date(), name: user.name ?? profile.name, avatarUrl: user.avatarUrl ?? profile.picture, authProvider: "google" }).where(eq17(users.id, user.id));
       await bootstrapWorkspace(user);
       const session = await createSession(user.id);
       res.cookie(SESSION_COOKIE, session.token, sessionCookieOptions(session.expiresAt));

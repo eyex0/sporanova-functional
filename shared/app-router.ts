@@ -258,4 +258,9 @@ export type AppRouter = {
   workflows: Record<string, unknown>;
   notifications: Record<string, unknown>;
   audit: Record<string, unknown>;
+  contacts: Record<string, unknown>;
+  leads: Record<string, unknown>;
+  helpdesk: Record<string, unknown>;
+  channels: Record<string, unknown>;
+  outbound: Record<string, unknown>;
 };

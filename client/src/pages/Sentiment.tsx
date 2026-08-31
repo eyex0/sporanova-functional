@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { analyticsApi } from "@/lib/trpc";
-import { SmilePlus, Meh, Frown, TrendingUp, TrendingDown } from "lucide-react";
+import { SmilePlus, Meh, Frown, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import "./Analytics.css";
 
 type SentimentData = {
@@ -10,19 +9,28 @@ type SentimentData = {
   negative: number;
   total: number;
   trend: "up" | "down" | "stable";
+  currentScore: number;
+  previousScore: number;
 };
 
 export default function Sentiment() {
   const { workspaceId } = useAuth();
   const [data, setData] = useState<SentimentData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<"7D" | "30D" | "90D" | "1Y">("30D");
 
   useEffect(() => {
     if (!workspaceId) return;
-    analyticsApi.overview({ workspaceId })
-      .then(() => { setData(null); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [workspaceId]);
+    setLoading(true);
+    fetch(`/api/trpc/analytics.sentiment?input=${encodeURIComponent(JSON.stringify({ "0": { json: { workspaceId, range } } }))}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(json => {
+        const payload = json?.result?.data?.json ?? json?.result?.data ?? json;
+        setData(payload && typeof payload === "object" && "positive" in payload ? payload : null);
+      })
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [workspaceId, range]);
 
   return (
     <div className="analytics-page">
@@ -30,6 +38,11 @@ export default function Sentiment() {
         <div>
           <h1>Sentiment</h1>
           <p className="analytics-subtitle">Customer sentiment analysis from chatbot conversations</p>
+        </div>
+        <div className="analytics-range">
+          {(["7D", "30D", "90D", "1Y"] as const).map((r) => (
+            <button key={r} className={range === r ? "active" : ""} onClick={() => setRange(r)}>{r}</button>
+          ))}
         </div>
       </header>
 
@@ -64,9 +77,10 @@ export default function Sentiment() {
               <div className="sentiment-segment sentiment-segment--negative" style={{ width: `${data.negative}%` }} />
             </div>
             <div className="sentiment-summary">
-              <p>Based on <strong>{data.total}</strong> conversations</p>
+              <p>Based on <strong>{data.total}</strong> messages</p>
               {data.trend === "up" && <span className="sentiment-trend sentiment-trend--up"><TrendingUp size={14} /> Improving</span>}
               {data.trend === "down" && <span className="sentiment-trend sentiment-trend--down"><TrendingDown size={14} /> Declining</span>}
+              {data.trend === "stable" && <span className="sentiment-trend sentiment-trend--stable"><Minus size={14} /> Stable</span>}
             </div>
           </>
         )}

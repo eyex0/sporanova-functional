@@ -1,154 +1,163 @@
 import { useState } from "react";
-import { Search, BookOpen, MessageSquare, Sparkles, ExternalLink, BookMarked } from "lucide-react";
-import "./Channels.css";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { channelsApi } from "@/lib/trpc";
+import { MessageCircle, FileText, MonitorPlay, Slack, Mail, Phone, Instagram, MessageSquare, Zap, Settings, Code2, Copy } from "lucide-react";
+import { toast } from "sonner";
+import "./SimplePage.css";
 
 type Channel = {
-  id: string;
-  title: string;
+  type: string;
+  name: string;
   description: string;
-  icon: React.ComponentType<{ size?: number; color?: string }>;
-  bgColor: string;
-  textColor?: string;
   available: boolean;
+  status: "active" | "draft" | "disabled";
+  id: number | null;
+  embedCode: string | null;
+  configuration: Record<string, unknown>;
+  createdAt: string | null;
 };
 
-const channels: Channel[] = [
-  {
-    id: "chat_bubble",
-    title: "Chat bubble",
-    description: "Add a chat bubble to your website and AI Agent will chat with visitors.",
-    icon: MessageSquare,
-    bgColor: "#2563EB",
-    available: true,
-  },
-  {
-    id: "help_page",
-    title: "Help page",
-    description: "Host your own help page and let users chat directly from it.",
-    icon: BookOpen,
-    bgColor: "#DB2777",
-    available: true,
-  },
-  {
-    id: "center_stage",
-    title: "Center Stage",
-    description: "Open a full-focus chat that opens centered over your site, perfect for in-context help.",
-    icon: Sparkles,
-    bgColor: "#16A34A",
-    available: true,
-  },
-  {
-    id: "messenger",
-    title: "Messenger",
-    description: "Reach customers on Facebook Messenger.",
-    icon: MessageSquare,
-    bgColor: "#1E40AF",
-    available: false,
-  },
-  {
-    id: "whatsapp",
-    title: "WhatsApp",
-    description: "Connect your WhatsApp Business account.",
-    icon: MessageSquare,
-    bgColor: "#16A34A",
-    available: false,
-  },
-  {
-    id: "instagram",
-    title: "Instagram",
-    description: "Reply to DMs on Instagram automatically.",
-    icon: MessageSquare,
-    bgColor: "#DB2777",
-    available: false,
-  },
-  {
-    id: "slack",
-    title: "Slack",
-    description: "Bring your agent into Slack channels.",
-    icon: MessageSquare,
-    bgColor: "#4A154B",
-    available: false,
-  },
-  {
-    id: "email",
-    title: "Email",
-    description: "Auto-reply to incoming email inquiries.",
-    icon: MessageSquare,
-    bgColor: "#0A0A0A",
-    available: false,
-  },
-];
+const ICONS: Record<string, React.ReactNode> = {
+  widget: <MessageCircle size={22} />,
+  help_page: <FileText size={22} />,
+  center_stage: <MonitorPlay size={22} />,
+  messenger: <MessageSquare size={22} />,
+  whatsapp: <MessageSquare size={22} />,
+  instagram: <Instagram size={22} />,
+  slack: <Slack size={22} />,
+  email: <Mail size={22} />,
+  sms: <MessageSquare size={22} />,
+  voice: <Phone size={22} />,
+};
 
 export default function Channels() {
-  const [query, setQuery] = useState("");
-  const filtered = channels.filter((c) => c.title.toLowerCase().includes(query.toLowerCase()));
+  const { workspaceId } = useAuth();
+  const queryClient = useQueryClient();
+  const [configureType, setConfigureType] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["channels.list", workspaceId],
+    queryFn: () => channelsApi.list({ workspaceId: workspaceId! }) as Promise<Channel[]>,
+    enabled: !!workspaceId,
+  });
+
+  const configure = useMutation({
+    mutationFn: channelsApi.configure,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels.list"] });
+      toast.success("Channel updated");
+      setConfigureType(null);
+    },
+    onError: () => toast.error("Failed to update channel"),
+  });
+
+  const disable = useMutation({
+    mutationFn: channelsApi.disable,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channels.list"] });
+      toast.success("Channel disabled");
+    },
+    onError: () => toast.error("Failed to disable channel"),
+  });
+
+  const handleToggle = (ch: Channel) => {
+    if (ch.status === "active") {
+      disable.mutate({ workspaceId, type: ch.type as any });
+    } else {
+      configure.mutate({ workspaceId, type: ch.type as any, status: "active" });
+    }
+  };
+
+  const handleCopy = (embedCode: string) => {
+    navigator.clipboard.writeText(embedCode);
+    toast.success("Embed code copied");
+  };
+
+  const channels = data ?? [];
+  const selected = channels.find(c => c.type === configureType);
 
   return (
-    <div className="channels">
-      <header className="channels-header">
-        <h1>Channels</h1>
-      </header>
-      <div className="channels-search-row">
-        <div className="channels-search">
-          <Search size={16} color="#6B7280" />
-          <input
-            placeholder="Search channels..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+    <div className="sp-page">
+      <header className="sp-header">
+        <div>
+          <h1>Channels</h1>
+          <p className="sp-subtitle">Connect your agent to the channels your customers use</p>
         </div>
-      </div>
-      <div className="channels-grid">
-        {filtered.map((c) => {
-          const Icon = c.icon;
-          return (
-            <div key={c.id} className="channels-card">
-              <div
-                className="channels-card-preview"
-                style={{
-                  background: c.bgColor,
-                  backgroundImage: c.bgColor.startsWith("#")
-                    ? `linear-gradient(135deg, ${c.bgColor} 0%, ${c.bgColor}CC 100%)`
-                    : c.bgColor,
-                }}
-              >
-                <div className="channels-card-preview-inner">
-                  <div className="channels-card-preview-widget">
-                    <div className="channels-card-preview-header">
-                      <div className="channels-card-preview-avatar">
-                        <Icon size={14} color={c.bgColor} />
-                      </div>
-                      <div className="channels-card-preview-bars">
-                        <div className="channels-card-preview-bar" style={{ width: "60%" }} />
-                        <div className="channels-card-preview-bar" style={{ width: "40%" }} />
-                      </div>
-                    </div>
-                    <div className="channels-card-preview-content">
-                      <p>Ask a question...</p>
-                    </div>
-                    <div className="channels-card-preview-actions">
-                      <span>🎤</span>
-                      <span>↑</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="channels-card-body">
-                <h3>{c.title}</h3>
-                <p>{c.description}</p>
-                <div className="channels-card-actions">
-                  <button className="channels-card-icon-btn">
-                    <BookMarked size={14} />
+      </header>
+
+      <div className="sp-card-grid">
+        {isLoading ? (
+          <div className="sp-empty">Loading channels...</div>
+        ) : channels.map((ch) => (
+          <div key={ch.type} className={`sp-type-card sp-channel-card sp-channel-card--${ch.status} ${!ch.available ? "sp-channel-card--unavailable" : ""}`}>
+            <div className="sp-channel-icon">{ICONS[ch.type] ?? <Zap size={22} />}</div>
+            <h3>{ch.name}</h3>
+            <p>{ch.description}</p>
+            <div className="sp-channel-footer">
+              <span className={`sp-tag sp-tag--${ch.status}`}>{ch.status}</span>
+              {ch.available ? (
+                <div className="sp-channel-actions">
+                  {ch.status === "active" && ch.embedCode && (
+                    <button className="sp-btn sp-btn--ghost" onClick={() => handleCopy(ch.embedCode!)}>
+                      <Code2 size={12} /> Embed
+                    </button>
+                  )}
+                  <button className="sp-btn sp-btn--secondary sp-btn--small" onClick={() => setConfigureType(ch.type)}>
+                    <Settings size={12} /> Configure
                   </button>
-                  <button className="channels-card-manage-btn">
-                    {c.available ? "Manage" : "Start free trial to enable"}
+                  <button className={`sp-btn sp-btn--${ch.status === "active" ? "danger" : "primary"} sp-btn--small`} onClick={() => handleToggle(ch)}>
+                    {ch.status === "active" ? "Disable" : "Enable"}
                   </button>
                 </div>
-              </div>
+              ) : (
+                <span className="sp-muted">Available on Enterprise plan</span>
+              )}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
+
+      {selected && (
+        <div className="sp-modal-backdrop" onClick={() => setConfigureType(null)}>
+          <div className="sp-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Configure {selected.name}</h2>
+            <div className="sp-form">
+              <div className="sp-form-row">
+                <label>Channel name</label>
+                <input defaultValue={selected.name} id="channel-name" />
+              </div>
+              <div className="sp-form-row">
+                <label>Status</label>
+                <select defaultValue={selected.status} id="channel-status">
+                  <option value="active">Active</option>
+                  <option value="draft">Draft</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </div>
+              {selected.embedCode && (
+                <div className="sp-form-row">
+                  <label>Embed code</label>
+                  <textarea readOnly rows={4} value={selected.embedCode} style={{ fontFamily: "monospace", fontSize: 12 }} />
+                  <button className="sp-btn sp-btn--ghost" onClick={() => handleCopy(selected.embedCode!)}>
+                    <Copy size={12} /> Copy
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="sp-modal-actions">
+              <button className="sp-btn sp-btn--secondary" onClick={() => setConfigureType(null)}>Cancel</button>
+              <button className="sp-btn sp-btn--primary" onClick={() => {
+                const name = (document.getElementById("channel-name") as HTMLInputElement)?.value;
+                const status = (document.getElementById("channel-status") as HTMLSelectElement)?.value as "active" | "draft" | "disabled";
+                configure.mutate({ workspaceId, type: selected.type as any, name, status });
+              }}>
+                Save changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -639,3 +639,102 @@
     padding: 16px;
   }
 }
+
+/* -- Playground additions ---------------------------------- */
+.pg-agent-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #1E4929;
+  color: #fff;
+  border-radius: 6px;
+}
+
+.pg-agent-icon { display: flex; align-items: center; }
+
+.pg-agent-select {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.pg-agent-select option { background: #1E4929; color: #fff; }
+
+.pg-status-dot--active { background: #10b981; }
+.pg-status-dot--idle { background: #6b7280; }
+.pg-status-dot--paused { background: #f59e0b; }
+.pg-status-dot--error { background: #ef4444; }
+
+.pg-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pg-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #0a0a0a;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.pg-save-btn:hover { background: #262626; }
+
+.pg-msg-thinking {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 10px 14px !important;
+}
+
+.pg-msg-thinking span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6b7280;
+  animation: pg-bounce 1.2s infinite;
+}
+
+.pg-msg-thinking span:nth-child(2) { animation-delay: 0.15s; }
+.pg-msg-thinking span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes pg-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.pg-msg-sources {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: 11px;
+  color: #737373;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.pg-msg-sources em {
+  font-style: normal;
+  background: #f0f4ff;
+  color: #1d4ed8;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}

@@ -76,10 +76,12 @@ export const dashboardApi = {
 
 /* ===== Agents ===== */
 export const agentsApi = {
-  list: (input: Record<string, unknown>) => trpcFetch("agents.list", input),
+  list: (input: Record<string, unknown>) => trpcFetch<{ items: any[] } | any[]>("agents.list", input),
   get: (input: Record<string, unknown>) => trpcFetch("agents.get", input),
   create: (input: Record<string, unknown>) => trpcMutate("agents.create", input),
+  update: (input: Record<string, unknown>) => trpcMutate("agents.update", input),
   setStatus: (input: Record<string, unknown>) => trpcMutate("agents.setStatus", input),
+  delete: (input: Record<string, unknown>) => trpcMutate("agents.delete", input),
   runs: (input: Record<string, unknown>) => trpcFetch("agents.runs", input),
   runNow: (input: Record<string, unknown>) => trpcMutate("agents.runNow", input),
 };
@@ -155,4 +157,57 @@ export const preferencesApi = {
   get: (input: Record<string, unknown>) => trpcFetch("preferences.get", input),
   updateProfile: (input: Record<string, unknown>) => trpcMutate("preferences.updateProfile", input),
   update: (input: Record<string, unknown>) => trpcMutate("preferences.update", input),
+};
+
+/* ===== Contacts ===== */
+export const contactsApi = {
+  list: (input: Record<string, unknown>) => trpcFetch<{ items: any[]; total: number; page: number; pageSize: number }>("contacts.list", input),
+  get: (input: Record<string, unknown>) => trpcFetch("contacts.get", input),
+  create: (input: Record<string, unknown>) => trpcMutate("contacts.create", input),
+  update: (input: Record<string, unknown>) => trpcMutate("contacts.update", input),
+  delete: (input: Record<string, unknown>) => trpcMutate("contacts.delete", input),
+  import: (input: Record<string, unknown>) => trpcMutate<{ imported: number }>("contacts.import", input),
+  export: (input: Record<string, unknown>) => trpcFetch<{ csv: string; count: number }>("contacts.export", input),
+};
+
+/* ===== Leads ===== */
+export const leadsApi = {
+  list: (input: Record<string, unknown>) => trpcFetch<{ items: any[]; total: number; page: number; pageSize: number }>("leads.list", input),
+  get: (input: Record<string, unknown>) => trpcFetch("leads.get", input),
+  create: (input: Record<string, unknown>) => trpcMutate("leads.create", input),
+  update: (input: Record<string, unknown>) => trpcMutate("leads.update", input),
+  delete: (input: Record<string, unknown>) => trpcMutate("leads.delete", input),
+  convert: (input: Record<string, unknown>) => trpcMutate<{ contactId: number }>("leads.convert", input),
+  export: (input: Record<string, unknown>) => trpcFetch<{ csv: string; count: number }>("leads.export", input),
+};
+
+/* ===== Helpdesk ===== */
+export const helpdeskApi = {
+  listTickets: (input: Record<string, unknown>) => trpcFetch<{ items: any[]; total: number; page: number; pageSize: number }>("helpdesk.listTickets", input),
+  getTicket: (input: Record<string, unknown>) => trpcFetch("helpdesk.getTicket", input),
+  listMessages: (input: Record<string, unknown>) => trpcFetch<any[]>("helpdesk.listMessages", input),
+  createTicket: (input: Record<string, unknown>) => trpcMutate("helpdesk.createTicket", input),
+  updateTicket: (input: Record<string, unknown>) => trpcMutate("helpdesk.updateTicket", input),
+  addMessage: (input: Record<string, unknown>) => trpcMutate("helpdesk.addMessage", input),
+  deleteTicket: (input: Record<string, unknown>) => trpcMutate("helpdesk.deleteTicket", input),
+  listInboxes: (input: Record<string, unknown>) => trpcFetch<{ inboxes: { key: string; label: string; count: number }[] }>("helpdesk.listInboxes", input),
+};
+
+/* ===== Channels ===== */
+export const channelsApi = {
+  list: (input: Record<string, unknown>) => trpcFetch<any[]>("channels.list", input),
+  configure: (input: Record<string, unknown>) => trpcMutate("channels.configure", input),
+  disable: (input: Record<string, unknown>) => trpcMutate("channels.disable", input),
+  getEmbedCode: (input: Record<string, unknown>) => trpcFetch<{ embedCode: string }>("channels.getEmbedCode", input),
+};
+
+/* ===== Outbound ===== */
+export const outboundApi = {
+  listCampaigns: (input: Record<string, unknown>) => trpcFetch<{ items: any[]; total: number; page: number; pageSize: number }>("outbound.listCampaigns", input),
+  getCampaign: (input: Record<string, unknown>) => trpcFetch("outbound.getCampaign", input),
+  createCampaign: (input: Record<string, unknown>) => trpcMutate("outbound.createCampaign", input),
+  updateCampaign: (input: Record<string, unknown>) => trpcMutate("outbound.updateCampaign", input),
+  sendCampaign: (input: Record<string, unknown>) => trpcMutate("outbound.sendCampaign", input),
+  deleteCampaign: (input: Record<string, unknown>) => trpcMutate("outbound.deleteCampaign", input),
+  campaignStats: (input: Record<string, unknown>) => trpcFetch("outbound.campaignStats", input),
 };

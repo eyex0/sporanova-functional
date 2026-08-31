@@ -74,4 +74,38 @@ export const agentsRouter = router({
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.run_queued", resourceType: "agentRun", resourceId: runId, metadata: { agentId: agent.id } });
       return { id: runId, status: "pending" as const, content: "The agent run was queued for the SOPRANOVA worker." };
     }),
+
+  update: workspaceManagerProcedure
+    .input(workspaceIdInput.extend({
+      agentId: z.number().int().positive(),
+      name: z.string().trim().min(2).max(160).optional(),
+      purpose: z.string().trim().min(4).max(8000).optional(),
+      description: z.string().trim().max(4000).nullable().optional(),
+      capabilities: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+      configuration: z.record(z.unknown()).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { agentId, ...patch } = input;
+      await workspaceAgent(ctx.workspaceId, agentId);
+      const db = await requireDb();
+      const updateValues: Record<string, unknown> = { updatedAt: new Date() };
+      if (patch.name !== undefined) updateValues.name = patch.name;
+      if (patch.purpose !== undefined) updateValues.purpose = patch.purpose;
+      if (patch.description !== undefined) updateValues.description = patch.description;
+      if (patch.capabilities !== undefined) updateValues.capabilities = patch.capabilities;
+      if (patch.configuration !== undefined) updateValues.configuration = patch.configuration;
+      await db.update(agents).set(updateValues).where(and(eq(agents.id, agentId), eq(agents.workspaceId, ctx.workspaceId)));
+      await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.updated", resourceType: "agent", resourceId: agentId });
+      return workspaceAgent(ctx.workspaceId, agentId);
+    }),
+
+  delete: workspaceManagerProcedure
+    .input(workspaceIdInput.extend({ agentId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      await workspaceAgent(ctx.workspaceId, input.agentId);
+      const db = await requireDb();
+      await db.update(agents).set({ deletedAt: new Date() }).where(and(eq(agents.id, input.agentId), eq(agents.workspaceId, ctx.workspaceId)));
+      await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.deleted", resourceType: "agent", resourceId: input.agentId });
+      return { success: true };
+    }),
 });

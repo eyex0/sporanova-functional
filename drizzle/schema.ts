@@ -572,3 +572,190 @@ export const auditLogs = pgTable(
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type WorkspaceRole = typeof memberships.$inferSelect.role;
+
+/* ───────────────────── Contacts ───────────────────── */
+export const contactsStatusEnum = pgEnum("contacts_status", ["active", "unsubscribed", "blocked"]);
+
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    email: varchar("email", { length: 320 }),
+    phone: varchar("phone", { length: 64 }),
+    company: varchar("company", { length: 160 }),
+    jobTitle: varchar("jobTitle", { length: 160 }),
+    source: varchar("source", { length: 80 }).default("manual"),
+    status: contactsStatusEnum("status").notNull().default("active"),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+    deletedAt: timestamp("deletedAt"),
+  },
+  table => [
+    index("contacts_workspace_status_idx").on(table.workspaceId, table.status),
+    index("contacts_workspace_email_idx").on(table.workspaceId, table.email),
+    index("contacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
+  ],
+);
+
+/* ───────────────────── Leads ───────────────────── */
+export const leadsStatusEnum = pgEnum("leads_status", ["new", "contacted", "qualified", "converted", "lost"]);
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    email: varchar("email", { length: 320 }),
+    phone: varchar("phone", { length: 64 }),
+    company: varchar("company", { length: 160 }),
+    source: varchar("source", { length: 80 }).default("manual"),
+    status: leadsStatusEnum("status").notNull().default("new"),
+    value: numeric("value", { precision: 18, scale: 2 }).default("0"),
+    notes: text("notes"),
+    assignedToId: integer("assignedToId").references(() => users.id, { onDelete: "set null" }),
+    convertedToContactId: integer("convertedToContactId").references(() => contacts.id, { onDelete: "set null" }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+    deletedAt: timestamp("deletedAt"),
+  },
+  table => [
+    index("leads_workspace_status_idx").on(table.workspaceId, table.status),
+    index("leads_workspace_assigned_idx").on(table.workspaceId, table.assignedToId),
+    index("leads_workspace_created_idx").on(table.workspaceId, table.createdAt),
+  ],
+);
+
+/* ───────────────────── Tickets (Helpdesk) ───────────────────── */
+export const ticketsStatusEnum = pgEnum("tickets_status", ["new", "open", "pending", "on_hold", "resolved", "closed"]);
+export const ticketsPriorityEnum = pgEnum("tickets_priority", ["low", "normal", "high", "urgent"]);
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    ticketNumber: serial("ticketNumber").notNull(),
+    subject: varchar("subject", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    status: ticketsStatusEnum("status").notNull().default("new"),
+    priority: ticketsPriorityEnum("priority").notNull().default("normal"),
+    source: varchar("source", { length: 80 }).default("dashboard"),
+    requesterEmail: varchar("requesterEmail", { length: 320 }),
+    requesterName: varchar("requesterName", { length: 160 }),
+    assigneeId: integer("assigneeId").references(() => users.id, { onDelete: "set null" }),
+    contactId: integer("contactId").references(() => contacts.id, { onDelete: "set null" }),
+    conversationId: integer("conversationId").references(() => conversations.id, { onDelete: "set null" }),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    resolvedAt: timestamp("resolvedAt"),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("tickets_workspace_number_unique").on(table.workspaceId, table.ticketNumber),
+    index("tickets_workspace_status_idx").on(table.workspaceId, table.status),
+    index("tickets_workspace_assignee_idx").on(table.workspaceId, table.assigneeId),
+    index("tickets_workspace_created_idx").on(table.workspaceId, table.createdAt),
+  ],
+);
+
+export const ticketMessagesRoleEnum = pgEnum("ticket_messages_role", ["customer", "agent", "system", "note"]);
+
+export const ticketMessages = pgTable(
+  "ticket_messages",
+  {
+    id: serial("id").primaryKey(),
+    ticketId: integer("ticketId").notNull().references(() => tickets.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    authorUserId: integer("authorUserId").references(() => users.id, { onDelete: "set null" }),
+    authorName: varchar("authorName", { length: 160 }),
+    role: ticketMessagesRoleEnum("role").notNull().default("customer"),
+    content: text("content").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("ticket_messages_ticket_created_idx").on(table.ticketId, table.createdAt),
+    index("ticket_messages_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+/* ───────────────────── Channels ───────────────────── */
+export const channelsTypeEnum = pgEnum("channels_type", ["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]);
+export const channelsStatusEnum = pgEnum("channels_status", ["active", "draft", "disabled"]);
+
+export const channels = pgTable(
+  "channels",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    type: channelsTypeEnum("type").notNull(),
+    name: varchar("name", { length: 160 }).notNull(),
+    status: channelsStatusEnum("status").notNull().default("draft"),
+    configuration: jsonb("configuration").$type<Record<string, unknown>>(),
+    embedCode: text("embedCode"),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("channels_workspace_type_unique").on(table.workspaceId, table.type),
+    index("channels_workspace_status_idx").on(table.workspaceId, table.status),
+  ],
+);
+
+/* ───────────────────── Campaigns (Outbound) ───────────────────── */
+export const campaignsTypeEnum = pgEnum("campaigns_type", ["email", "sms", "scheduled", "automated"]);
+export const campaignsStatusEnum = pgEnum("campaigns_status", ["draft", "scheduled", "sending", "sent", "paused", "cancelled"]);
+
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    type: campaignsTypeEnum("type").notNull(),
+    status: campaignsStatusEnum("status").notNull().default("draft"),
+    subject: varchar("subject", { length: 255 }),
+    body: text("body"),
+    recipientCount: integer("recipientCount").notNull().default(0),
+    sentCount: integer("sentCount").notNull().default(0),
+    deliveredCount: integer("deliveredCount").notNull().default(0),
+    openedCount: integer("openedCount").notNull().default(0),
+    clickedCount: integer("clickedCount").notNull().default(0),
+    scheduledAt: timestamp("scheduledAt"),
+    completedAt: timestamp("completedAt"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+    deletedAt: timestamp("deletedAt"),
+  },
+  table => [
+    index("campaigns_workspace_status_idx").on(table.workspaceId, table.status),
+    index("campaigns_workspace_type_idx").on(table.workspaceId, table.type),
+    index("campaigns_workspace_scheduled_idx").on(table.workspaceId, table.scheduledAt),
+  ],
+);
+
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = typeof contacts.$inferInsert;
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = typeof leads.$inferInsert;
+export type Ticket = typeof tickets.$inferSelect;
+export type InsertTicket = typeof tickets.$inferInsert;
+export type TicketMessage = typeof ticketMessages.$inferSelect;
+export type InsertTicketMessage = typeof ticketMessages.$inferInsert;
+export type Channel = typeof channels.$inferSelect;
+export type InsertChannel = typeof channels.$inferInsert;
+export type Campaign = typeof campaigns.$inferSelect;
+export type InsertCampaign = typeof campaigns.$inferInsert;

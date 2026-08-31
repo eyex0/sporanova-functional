@@ -1,59 +1,67 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
-import "./Integrations.css";
+import { Search, Check } from "lucide-react";
+import { toast } from "sonner";
+import "./SimplePage.css";
 
-type Integration = {
-  id: string;
-  name: string;
-  description: string;
-  bgColor: string;
-  iconColor: string;
-  initials: string;
-};
-
-const integrations: Integration[] = [
-  { id: "slack", name: "Slack", description: "Manage your Slack conversations.", bgColor: "#FEF3C7", iconColor: "#4A154B", initials: "S" },
-  { id: "shopify", name: "Shopify", description: "Connect your Shopify store to SOPRANOVA.", bgColor: "#D1FAE5", iconColor: "#16A34A", initials: "S" },
-  { id: "twilio", name: "Twilio", description: "Enable inbound phone calls for your AI Agent via Twilio.", bgColor: "#FEE2E2", iconColor: "#DC2626", initials: "T" },
-  { id: "calendly", name: "Calendly", description: "Manage your Calendly events.", bgColor: "#DBEAFE", iconColor: "#1D4ED8", initials: "C" },
-  { id: "stripe", name: "Stripe", description: "Manage payments, billing, and automate financial operations.", bgColor: "#EDE9FE", iconColor: "#7C3AED", initials: "S" },
-  { id: "zendesk", name: "Zendesk", description: "Connect Zendesk so that your AI agent can escalate tickets to humans, draft suggestions or auto-reply to tickets.", bgColor: "#D1FAE5", iconColor: "#16A34A", initials: "Z" },
-  { id: "hubspot", name: "HubSpot", description: "Sync contacts and tickets with HubSpot CRM.", bgColor: "#FEE2E2", iconColor: "#DC2626", initials: "H" },
-  { id: "salesforce", name: "Salesforce", description: "Connect Salesforce for CRM data sync.", bgColor: "#DBEAFE", iconColor: "#1D4ED8", initials: "S" },
-  { id: "intercom", name: "Intercom", description: "Migrate from Intercom and sync data.", bgColor: "#DBEAFE", iconColor: "#1D4ED8", initials: "I" },
-  { id: "helpscout", name: "Help Scout", description: "Connect Help Scout for ticket management.", bgColor: "#DBEAFE", iconColor: "#2563EB", initials: "H" },
-  { id: "freshdesk", name: "Freshdesk", description: "Connect Freshdesk for ticket management.", bgColor: "#D1FAE5", iconColor: "#16A34A", initials: "F" },
-  { id: "cal", name: "Cal.com", description: "Manage your Cal.com bookings.", bgColor: "#0A0A0A", iconColor: "#FFFFFF", initials: "C" },
+const INTEGRATIONS = [
+  { id: "slack", name: "Slack", category: "Communication", description: "Send notifications and replies to your Slack channels", available: true, color: "#4A154B" },
+  { id: "shopify", name: "Shopify", category: "E-commerce", description: "Connect your store to provide order and product support", available: true, color: "#96BF48" },
+  { id: "twilio", name: "Twilio", category: "Communication", description: "Send SMS and make voice calls through Twilio", available: true, color: "#F22F46" },
+  { id: "calendly", name: "Calendly", category: "Scheduling", description: "Let your agent book meetings directly into Calendly", available: true, color: "#006BFF" },
+  { id: "stripe", name: "Stripe", category: "Payments", description: "Process payments, refunds, and subscription changes", available: true, color: "#635BFF" },
+  { id: "zendesk", name: "Zendesk", category: "Support", description: "Sync tickets between your helpdesk and Zendesk", available: false, color: "#03363D" },
+  { id: "hubspot", name: "HubSpot", category: "CRM", description: "Sync contacts, deals, and activities with HubSpot CRM", available: false, color: "#FF7A59" },
+  { id: "salesforce", name: "Salesforce", category: "CRM", description: "Connect to Salesforce for enterprise CRM workflows", available: false, color: "#00A1E0" },
+  { id: "intercom", name: "Intercom", category: "Support", description: "Migrate from Intercom or sync your live chat", available: false, color: "#1F8DED" },
+  { id: "help_scout", name: "Help Scout", category: "Support", description: "Sync your Help Scout mailbox and customer data", available: false, color: "#1292EE" },
+  { id: "freshdesk", name: "Freshdesk", category: "Support", description: "Sync tickets and contacts with Freshdesk", available: false, color: "#25C16F" },
+  { id: "cal_com", name: "Cal.com", category: "Scheduling", description: "Open-source scheduling integration", available: true, color: "#292929" },
 ];
 
 export default function Integrations() {
-  const [query, setQuery] = useState("");
-  const filtered = integrations.filter((i) => i.name.toLowerCase().includes(query.toLowerCase()));
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "available" | "connected">("all");
+
+  const filtered = INTEGRATIONS.filter((i) => {
+    if (search && !i.name.toLowerCase().includes(search.toLowerCase()) && !i.description.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filter === "available" && !i.available) return false;
+    if (filter === "connected") return false; // No connected state in this stub
+    return true;
+  });
 
   return (
-    <div className="integrations">
-      <header className="integrations-header">
-        <h1>Integrations</h1>
-      </header>
-      <div className="integrations-search-row">
-        <div className="integrations-search">
-          <Search size={16} color="#6B7280" />
-          <input
-            placeholder="Search integrations..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+    <div className="sp-page">
+      <header className="sp-header">
+        <div>
+          <h1>Integrations</h1>
+          <p className="sp-subtitle">Connect your agent to the tools your team already uses</p>
         </div>
+      </header>
+
+      <div className="sp-tabs">
+        <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>All</button>
+        <button className={filter === "available" ? "active" : ""} onClick={() => setFilter("available")}>Available</button>
+        <button className={filter === "connected" ? "active" : ""} onClick={() => setFilter("connected")}>Connected</button>
       </div>
-      <div className="integrations-grid">
+
+      <div className="sp-search-bar">
+        <Search size={16} />
+        <input placeholder="Search integrations..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      <div className="sp-card-grid sp-card-grid--3">
         {filtered.map((i) => (
-          <div key={i.id} className="integration-card">
-            <div className="integration-card-icon" style={{ background: i.bgColor, color: i.iconColor }}>
-              <span>{i.initials}</span>
-            </div>
+          <div key={i.id} className={`sp-integration-card ${!i.available ? "sp-integration-card--locked" : ""}`}>
+            <div className="sp-integration-icon" style={{ background: i.color }}>{i.name.charAt(0)}</div>
             <h3>{i.name}</h3>
+            <span className="sp-muted sp-small">{i.category}</span>
             <p>{i.description}</p>
-            <button className="integration-card-cta">Start free trial to enable</button>
+            <button
+              className={`sp-btn sp-btn--${i.available ? "secondary" : "ghost"} sp-btn--full`}
+              onClick={() => i.available ? toast.info(`Connect ${i.name} — coming soon`) : toast.info("Upgrade to a paid plan to enable this integration")}
+            >
+              {i.available ? <><Check size={12} /> Start free trial to enable</> : "Upgrade to enable"}
+            </button>
           </div>
         ))}
       </div>
