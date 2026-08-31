@@ -67,6 +67,8 @@ const router = createBrowserRouter([
       { path: "contact", Component: ContactPage },
       { path: "login", Component: Login },
       { path: "signup", Component: Signup },
+      { path: "auth/signin", Component: Login },
+      { path: "auth/signup", Component: Signup },
       { path: "forgot-password", Component: ForgotPassword },
       {
         path: "app",
