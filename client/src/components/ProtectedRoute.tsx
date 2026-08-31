@@ -1,22 +1,12 @@
-import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Redirect, useLocation } from "wouter";
+import { Redirect } from "wouter";
 
 export function ProtectedRoute({
   component: Component,
 }: {
   component: React.ComponentType;
 }) {
-  const { user, loading, onboardingCompleted } = useAuth();
-  const [location, setLocation] = useLocation();
-
-  useEffect(() => {
-    if (loading) return;
-    if (!user) return;
-    if (!onboardingCompleted && location !== "/onboarding" && !location.startsWith("/onboarding")) {
-      setLocation("/onboarding");
-    }
-  }, [loading, user, onboardingCompleted, location, setLocation]);
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -31,10 +21,6 @@ export function ProtectedRoute({
 
   if (!user) {
     return <Redirect to="/auth/signin" />;
-  }
-
-  if (!onboardingCompleted && location !== "/onboarding" && !location.startsWith("/onboarding")) {
-    return <Redirect to="/onboarding" />;
   }
 
   return <Component />;

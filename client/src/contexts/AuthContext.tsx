@@ -9,7 +9,6 @@ interface AuthContextValue {
   workspaceId: number | null;
   loading: boolean;
   onboardingCompleted: boolean;
-  refreshOnboarding: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, organizationName?: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -21,8 +20,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   workspaceId: null,
   loading: true,
-  onboardingCompleted: false,
-  refreshOnboarding: async () => {},
+  onboardingCompleted: true,
   login: async () => {},
   register: async () => {},
   logout: async () => {},
@@ -37,7 +35,6 @@ async function fetchWorkspaceId(): Promise<number | null> {
         workspace: {
           id: number;
           name: string;
-          onboardingCompleted?: boolean;
         };
       }>;
     };
@@ -47,20 +44,10 @@ async function fetchWorkspaceId(): Promise<number | null> {
   }
 }
 
-async function fetchOnboardingCompleted(workspaceId: number): Promise<boolean> {
-  try {
-    const result = (await workspacesApi.getOnboarding({ workspaceId })) as { completed?: boolean } | null;
-    return result?.completed === true;
-  } catch {
-    return false;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [workspaceId, setWorkspaceId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -79,24 +66,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (async () => {
         const wid = await fetchWorkspaceId();
         setWorkspaceId(wid);
-        if (wid) {
-          const completed = await fetchOnboardingCompleted(wid);
-          setOnboardingCompleted(completed);
-        }
         setLoading(false);
       })();
     } else {
       setWorkspaceId(null);
-      setOnboardingCompleted(false);
       setLoading(false);
     }
   }, [data, authLoading]);
-
-  const refreshOnboarding = async () => {
-    if (!workspaceId) return;
-    const completed = await fetchOnboardingCompleted(workspaceId);
-    setOnboardingCompleted(completed);
-  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -106,10 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["auth.me"], result);
       const wid = await fetchWorkspaceId();
       setWorkspaceId(wid);
-      if (wid) {
-        const completed = await fetchOnboardingCompleted(wid);
-        setOnboardingCompleted(completed);
-      }
       setLoading(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
@@ -126,10 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["auth.me"], result);
       const wid = await fetchWorkspaceId();
       setWorkspaceId(wid);
-      if (wid) {
-        const completed = await fetchOnboardingCompleted(wid);
-        setOnboardingCompleted(completed);
-      }
       setLoading(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
@@ -144,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
     setUser(null);
     setWorkspaceId(null);
-    setOnboardingCompleted(false);
     setLoading(false);
     queryClient.setQueryData(["auth.me"], null);
     queryClient.clear();
@@ -158,8 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         workspaceId,
         loading,
-        onboardingCompleted,
-        refreshOnboarding,
+        onboardingCompleted: true,
         login,
         register,
         logout,
