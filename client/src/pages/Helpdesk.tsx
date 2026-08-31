@@ -1,30 +1,98 @@
-import { Plus, Search } from "lucide-react";
-import "./SimplePage.css";
+import { useState } from "react";
+import { Inbox, Search, Plus, MessageSquare, Clock, CheckCircle, AlertCircle, Tag } from "lucide-react";
+import "../pages/SimplePage.css";
+
+type Ticket = {
+  id: number;
+  subject: string;
+  status: string;
+  priority: string;
+  assignee?: string;
+  createdAt: string;
+  lastReply?: string;
+};
+
+const inboxItems = [
+  { id: "my", label: "My inbox", icon: Inbox, count: 0 },
+  { id: "mentions", label: "Mentions", icon: Tag, count: 0 },
+  { id: "all", label: "All", icon: MessageSquare, count: 0 },
+  { id: "unassigned", label: "Unassigned", icon: AlertCircle, count: 0 },
+  { id: "solved", label: "Solved", icon: CheckCircle, count: 0 },
+  { id: "conversations", label: "Conversations", icon: MessageSquare, count: 0 },
+];
 
 export default function Helpdesk() {
+  const [activeInbox, setActiveInbox] = useState("my");
+  const [search, setSearch] = useState("");
+  const [tickets] = useState<Ticket[]>([]);
+
   return (
-    <div className="simple-page">
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-        <button className="simple-page-btn-secondary">
-          <Plus size={14} /> New ticket
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px solid #E5E5E5", borderRadius: 8, background: "#FFFFFF" }}>
-          <Search size={14} color="#6B7280" />
+    <div className="sp-page sp-page--split">
+      {/* Sidebar */}
+      <aside className="sp-sidebar">
+        <div className="sp-sidebar-header">
+          <h2>Helpdesk</h2>
+          <button className="sp-btn sp-btn--primary sp-btn--sm"><Plus size={14} /> New ticket</button>
         </div>
-      </div>
+        <div className="sp-sidebar-search">
+          <Search size={14} />
+          <input placeholder="Search tickets..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <nav className="sp-sidebar-nav">
+          {inboxItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                className={`sp-sidebar-item ${activeInbox === item.id ? "sp-sidebar-item--active" : ""}`}
+                onClick={() => setActiveInbox(item.id)}
+              >
+                <Icon size={16} />
+                <span>{item.label}</span>
+                <span className="sp-sidebar-count">{item.count}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 32, width: 220 }}>
-        {["My inbox", "Mentions", "All", "Unassigned", "Solved", "Conversations"].map((item) => (
-          <a key={item} href="#" onClick={(e) => e.preventDefault()} style={{ padding: "8px 12px", borderRadius: 6, fontSize: 14, color: "#0A0A0A", textDecoration: "none" }}>
-            {item}
-          </a>
-        ))}
-      </nav>
-
-      <div className="simple-page-empty-card">
-        <h3>Start a free trial to use this feature</h3>
-        <p>Unlock Helpdesk by upgrading your plan</p>
-        <button className="simple-page-btn-primary">Start 7-day trial</button>
+      {/* Main */}
+      <div className="sp-main">
+        {tickets.length === 0 ? (
+          <div className="sp-empty">
+            <div className="sp-empty-icon"><Inbox size={40} /></div>
+            <h3>No tickets yet</h3>
+            <p>Customer support tickets will appear here. Start a free trial to use the helpdesk.</p>
+            <button className="sp-btn sp-btn--primary">Start 7-day trial</button>
+          </div>
+        ) : (
+          <div className="sp-table-wrap">
+            <table className="sp-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Assignee</th>
+                  <th>Last reply</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tickets.map((ticket) => (
+                  <tr key={ticket.id}>
+                    <td className="sp-cell-name">{ticket.subject}</td>
+                    <td><span className={`sp-status sp-status--${ticket.status}`}>{ticket.status}</span></td>
+                    <td>{ticket.priority}</td>
+                    <td>{ticket.assignee || "—"}</td>
+                    <td>{ticket.lastReply || "—"}</td>
+                    <td className="sp-cell-date">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

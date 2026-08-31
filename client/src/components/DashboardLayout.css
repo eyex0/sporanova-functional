@@ -1,15 +1,15 @@
 /* ── Layout ────────────────────────────────────────────── */
 
-.cb-layout {
+.db-layout {
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background: #fafafa;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.cb-layout-body {
+.db-layout-body {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -17,7 +17,7 @@
 
 /* ── Trial Banner ──────────────────────────────────────── */
 
-.cb-trial-banner {
+.db-trial-banner {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -29,21 +29,22 @@
   flex-shrink: 0;
   position: relative;
   gap: 16px;
+  z-index: 50;
 }
 
-.cb-trial-banner-inner {
+.db-trial-banner-inner {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.cb-trial-banner span {
+.db-trial-banner span {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.cb-trial-claim-btn {
+.db-trial-claim-btn {
   padding: 6px 14px;
   border: 1px solid rgba(255,255,255,0.3);
   border-radius: 6px;
@@ -56,11 +57,11 @@
   transition: background 0.15s;
 }
 
-.cb-trial-claim-btn:hover {
+.db-trial-claim-btn:hover {
   background: rgba(255,255,255,0.1);
 }
 
-.cb-trial-close {
+.db-trial-close {
   position: absolute;
   right: 16px;
   top: 50%;
@@ -73,13 +74,13 @@
   display: flex;
 }
 
-.cb-trial-close:hover {
+.db-trial-close:hover {
   color: #ffffff;
 }
 
 /* ── Sidebar ───────────────────────────────────────────── */
 
-.cb-sidebar {
+.db-sidebar {
   position: fixed;
   top: 0;
   left: 0;
@@ -88,57 +89,88 @@
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  z-index: 30;
+  z-index: 40;
   border-right: 1px solid #e5e5e5;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: width 0.2s ease;
 }
 
-/* When banner is visible, sidebar starts below it */
-.cb-layout:has(.cb-trial-banner) .cb-sidebar {
-  top: 0;
+.db-sidebar--collapsed {
+  width: 72px;
 }
 
-/* ── Logo ──────────────────────────────────────────────── */
+/* ── Header ────────────────────────────────────────────── */
 
-.cb-sidebar-logo {
+.db-sidebar-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 20px 16px 12px;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+  min-height: 60px;
 }
 
-.cb-logo-text {
-  font-size: 17px;
+.db-sidebar--collapsed .db-sidebar-header {
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.db-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.db-logo-text {
+  font-size: 16px;
   font-weight: 700;
   color: #0a0a0a;
   letter-spacing: -0.02em;
 }
 
-/* ── Workspace Selector ────────────────────────────────── */
-
-.cb-workspace-section {
-  padding: 0 8px;
+.db-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #737373;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 
-.cb-workspace-selector {
+.db-sidebar-toggle:hover {
+  background: #e5e5e5;
+  color: #171717;
+}
+
+/* ── Workspace Selector ────────────────────────────────── */
+
+.db-workspace-section {
+  padding: 0 12px;
+}
+
+.db-workspace-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
   padding: 10px 12px;
   border: 1px solid #e5e5e5;
-  border-radius: 10px;
-  background: #ffffff;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.cb-workspace-selector:hover {
+.db-workspace-row:hover {
   background: #f5f5f5;
 }
 
-.cb-workspace-info {
+.db-workspace-info {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -146,7 +178,7 @@
   gap: 2px;
 }
 
-.cb-workspace-name {
+.db-workspace-name {
   font-size: 13px;
   font-weight: 600;
   color: #0a0a0a;
@@ -156,7 +188,7 @@
   text-overflow: ellipsis;
 }
 
-.cb-workspace-meta {
+.db-workspace-meta {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -164,8 +196,8 @@
   color: #737373;
 }
 
-.cb-badge {
-  font-size: 11px;
+.db-badge {
+  font-size: 10px;
   font-weight: 500;
   color: #737373;
   background: #f5f5f5;
@@ -173,39 +205,52 @@
   border-radius: 4px;
 }
 
-.cb-chevron-icon {
+.db-chevron {
   color: #a3a3a3;
   flex-shrink: 0;
 }
 
 /* ── Search ────────────────────────────────────────────── */
 
-.cb-sidebar-search {
+.db-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 12px 8px 0;
+  margin: 10px 12px 0;
   padding: 8px 12px;
   border: 1px solid #e5e5e5;
   border-radius: 8px;
   background: #ffffff;
-  font-size: 13px;
-  color: #737373;
   cursor: pointer;
   transition: border-color 0.15s;
 }
 
-.cb-sidebar-search:hover {
+.db-search:hover {
   border-color: #d4d4d4;
 }
 
-.cb-search-icon {
+.db-search-icon {
   color: #a3a3a3;
   flex-shrink: 0;
 }
 
-.cb-sidebar-search kbd {
-  margin-left: auto;
+.db-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #0a0a0a;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.db-search input::placeholder {
+  color: #a3a3a3;
+}
+
+.db-search kbd {
   font-size: 10px;
   font-family: inherit;
   color: #a3a3a3;
@@ -217,222 +262,252 @@
 
 /* ── Navigation ────────────────────────────────────────── */
 
-.cb-sidebar-nav {
+.db-sidebar-nav {
   flex: 1;
-  padding: 8px 8px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   gap: 1px;
+  overflow-y: auto;
 }
 
-.cb-nav-item {
+.db-sidebar--collapsed .db-sidebar-nav {
+  padding: 12px 0;
+  align-items: center;
+}
+
+.db-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 14px;
-  font-weight: 400;
-  color: #171717;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.12s;
-  white-space: nowrap;
-}
-
-.cb-nav-item:hover {
-  background: #f5f5f5;
-}
-
-.cb-nav-item--active {
-  background: #f5f5f5;
   font-weight: 500;
-}
-
-.cb-nav-chevron {
-  margin-left: auto;
-  color: #a3a3a3;
-}
-
-/* ── Settings Submenu ──────────────────────────────────── */
-
-.cb-nav-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.cb-nav-submenu {
-  display: flex;
-  flex-direction: column;
-  padding: 0 0 0 42px;
-  gap: 1px;
-}
-
-.cb-nav-subitem {
-  display: block;
-  padding: 7px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 400;
   color: #525252;
   text-decoration: none;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
 }
 
-.cb-nav-subitem:hover {
-  background: #f5f5f5;
-  color: #171717;
+.db-sidebar--collapsed .db-nav-item {
+  justify-content: center;
+  padding: 10px;
+  width: 44px;
+  height: 44px;
 }
 
-.cb-nav-subitem--active {
+.db-nav-item:hover {
   background: #f5f5f5;
   color: #0a0a0a;
-  font-weight: 500;
 }
 
-/* ── Bottom Section ────────────────────────────────────── */
-
-.cb-sidebar-bottom {
-  padding: 8px 8px 16px;
-  border-top: 1px solid #e5e5e5;
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.db-nav-item--active {
+  background: #f5f5f5;
+  color: #0a0a0a;
+  font-weight: 600;
 }
 
-.cb-docs-link {
-  color: #737373;
-  font-size: 14px;
-}
-
-.cb-docs-link:hover {
-  color: #171717;
-}
-
-.cb-external-icon {
+.db-nav-chevron {
   margin-left: auto;
   color: #a3a3a3;
 }
 
-/* ── Messages Counter ──────────────────────────────────── */
+/* ── Submenu ───────────────────────────────────────────── */
 
-.cb-messages-counter {
-  padding: 8px 12px;
+.db-nav-group {
+  display: flex;
+  flex-direction: column;
 }
 
-.cb-messages-header {
+.db-nav-submenu {
   display: flex;
+  flex-direction: column;
+  margin-left: 38px;
+  border-left: 1px solid #e5e5e5;
+  padding: 2px 0 4px 8px;
+  margin-bottom: 2px;
+  gap: 1px;
+}
+
+.db-nav-subitem {
+  display: block;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  color: #737373;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.db-nav-subitem:hover {
+  color: #0a0a0a;
+  background: #f5f5f5;
+}
+
+.db-nav-subitem--active {
+  color: #0a0a0a;
+  font-weight: 600;
+  background: #f5f5f5;
+}
+
+/* ── Bottom Section ────────────────────────────────────── */
+
+.db-sidebar-bottom {
+  padding: 8px 12px 16px;
+  border-top: 1px solid #f0f0f0;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Getting Started Progress ──────────────────────────── */
+
+.db-progress-card {
+  margin: 0 0 4px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.db-progress-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: #0a0a0a;
-  margin-bottom: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
 }
 
-.cb-messages-bar {
+.db-progress-header:hover {
+  color: #3b5bdb;
+}
+
+.db-progress-count {
+  font-size: 11px;
+  color: #737373;
+  margin: 0 0 8px;
+}
+
+.db-progress-bar {
   height: 4px;
   background: #e5e5e5;
   border-radius: 2px;
   overflow: hidden;
-  margin-bottom: 4px;
 }
 
-.cb-messages-fill {
+.db-progress-fill {
   height: 100%;
   background: #3b5bdb;
   border-radius: 2px;
   transition: width 0.3s;
 }
 
-.cb-messages-reset {
-  font-size: 11px;
+/* ── Docs Link ─────────────────────────────────────────── */
+
+.db-docs-link {
+  color: #737373;
+  font-size: 13px;
+}
+
+.db-docs-link:hover {
+  color: #171717;
+}
+
+.db-external-icon {
+  margin-left: auto;
   color: #a3a3a3;
 }
 
-/* ── Start Free Trial Button ───────────────────────────── */
+/* ── Sign Out ──────────────────────────────────────────── */
 
-.cb-trial-btn {
+.db-signout {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 16px;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #0a0a0a;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.cb-trial-btn:hover {
-  background: #f5f5f5;
-  border-color: #d4d4d4;
-}
-
-/* ── User Row ──────────────────────────────────────────── */
-
-.cb-user-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4px;
-}
-
-.cb-user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #e5e5e5;
-  color: #525252;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.cb-user-menu {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  padding: 8px 12px;
   border: none;
+  border-radius: 6px;
   background: transparent;
   color: #737373;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 
-.cb-user-menu:hover {
+.db-sidebar--collapsed .db-signout {
+  justify-content: center;
+  padding: 10px;
+}
+
+.db-signout:hover {
   background: #f5f5f5;
+  color: #171717;
 }
 
 /* ── Main Content ──────────────────────────────────────── */
 
-.cb-main {
+.db-main {
   flex: 1;
   margin-left: 256px;
   min-height: 100vh;
   overflow: auto;
   background: #fafafa;
+  transition: margin-left 0.2s ease;
+}
+
+.db-main--collapsed {
+  margin-left: 72px;
 }
 
 /* ── Responsive ────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .cb-sidebar {
+  .db-sidebar {
+    width: 72px;
+  }
+
+  .db-sidebar .db-nav-item span,
+  .db-sidebar .db-workspace-info,
+  .db-sidebar .db-sidebar-logo,
+  .db-sidebar .db-search,
+  .db-sidebar .db-workspace-section,
+  .db-sidebar .db-progress-card,
+  .db-sidebar .db-signout span {
     display: none;
   }
-  .cb-main {
-    margin-left: 0;
+
+  .db-sidebar-header {
+    justify-content: center;
+    padding: 16px 0;
+  }
+
+  .db-sidebar-nav {
+    padding: 12px 0;
+    align-items: center;
+  }
+
+  .db-nav-item {
+    justify-content: center;
+    padding: 10px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .db-sidebar-bottom {
+    padding: 16px 0;
+    align-items: center;
+  }
+
+  .db-main {
+    margin-left: 72px;
   }
 }

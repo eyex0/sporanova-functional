@@ -20,6 +20,8 @@ import Agents from "./pages/Agents";
 import Conversations from "./pages/Conversations";
 import Workflows from "./pages/Workflows";
 import Analytics from "./pages/Analytics";
+import Topics from "./pages/Topics";
+import Sentiment from "./pages/Sentiment";
 import DataSources from "./pages/DataSources";
 import Settings from "./pages/Settings";
 import ReferenceSolutionPage from "./pages/ReferenceSolutionPage";
@@ -49,8 +51,8 @@ function Router() {
       <Route path="/dashboard/collected-data">{() => <ProtectedRoute component={() => <DashboardLayout><DataSources /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/workflows">{() => <ProtectedRoute component={() => <DashboardLayout><Workflows /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/analytics">{() => <ProtectedRoute component={() => <DashboardLayout><Analytics /></DashboardLayout>} />}</Route>
-      <Route path="/dashboard/analytics/topics">{() => <ProtectedRoute component={() => <DashboardLayout><Analytics /></DashboardLayout>} />}</Route>
-      <Route path="/dashboard/analytics/sentiment">{() => <ProtectedRoute component={() => <DashboardLayout><Analytics /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/analytics/topics">{() => <ProtectedRoute component={() => <DashboardLayout><Topics /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/analytics/sentiment">{() => <ProtectedRoute component={() => <DashboardLayout><Sentiment /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/contacts">{() => <ProtectedRoute component={() => <DashboardLayout><Contacts /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/channels">{() => <ProtectedRoute component={() => <DashboardLayout><Channels /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/integrations">{() => <ProtectedRoute component={() => <DashboardLayout><Integrations /></DashboardLayout>} />}</Route>
