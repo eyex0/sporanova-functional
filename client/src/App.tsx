@@ -26,6 +26,7 @@ import ReferenceSolutionPage from "./pages/ReferenceSolutionPage";
 import AuthFlow from "./pages/AuthFlow";
 import Onboarding from "./pages/Onboarding";
 import RouteTransition from "./components/RouteTransition";
+import Home from "./pages/Home";
 import CustomerStoryDetail from "./pages/CustomerStoryDetail";
 import { ArticlePage, BlogPage, ChangelogPage, CustomersPage, DocsPage, EnterprisePage, GuidePage, PricingPage, ResourcesPage, SolutionDetailPage, SolutionsPage } from "./pages/PublicPages";
 
