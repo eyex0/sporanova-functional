@@ -1,101 +1,97 @@
+/** Reference style: application routes expose the full editorial public-site information architecture. */
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/_core/hooks/useAuth";
+import NotFound from "@/pages/NotFound";
+import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { WorkspaceProvider } from "./contexts/WorkspaceContext";
-import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router";
-import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import AppLayout from "./pages/original-app/AppLayout";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import DashboardLayout from "./components/DashboardLayout";
 import Backstage from "./pages/Backstage";
-import Agents from "./pages/Agents";
 import Playground from "./pages/Playground";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import Activity from "./pages/Activity";
-import Data from "./pages/Data";
-import Conversations from "./pages/Conversations";
-import Contacts from "./pages/Contacts";
 import Channels from "./pages/Channels";
 import Integrations from "./pages/Integrations";
+import Leads from "./pages/Leads";
+import Contacts from "./pages/Contacts";
+import Outbound from "./pages/Outbound";
 import Helpdesk from "./pages/Helpdesk";
-import NotFound from "./pages/NotFound";
-import PageTransition from "./components/PageTransition";
+import GettingStarted from "./pages/GettingStarted";
+import Agents from "./pages/Agents";
+import Conversations from "./pages/Conversations";
+import Workflows from "./pages/Workflows";
+import Analytics from "./pages/Analytics";
+import DataSources from "./pages/DataSources";
+import Settings from "./pages/Settings";
+import ReferenceSolutionPage from "./pages/ReferenceSolutionPage";
+import AuthFlow from "./pages/AuthFlow";
+import Onboarding from "./pages/Onboarding";
+import RouteTransition from "./components/RouteTransition";
+import CustomerStoryDetail from "./pages/CustomerStoryDetail";
+import { ArticlePage, BlogPage, ChangelogPage, CustomersPage, DocsPage, EnterprisePage, GuidePage, PricingPage, ResourcesPage, SolutionDetailPage, SolutionsPage } from "./pages/PublicPages";
 
-function PageTransitionWrapper() {
+
+function Router() {
   return (
-    <PageTransition>
-      <Outlet />
-    </PageTransition>
+    <RouteTransition><Switch>
+      <Route path={"/"} component={Home} />
+      <Route path={"/auth/signup"}>{() => <AuthFlow mode="signup" />}</Route>
+      <Route path={"/auth/signin"}>{() => <AuthFlow mode="signin" />}</Route>
+      <Route path="/onboarding">{() => <ProtectedRoute component={Onboarding} />}</Route>
+      <Route path="/dashboard">{() => <ProtectedRoute component={() => <DashboardLayout><Backstage /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/playground">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/playground/instructions">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/playground/procedures">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/playground/suggestions">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/agents">{() => <ProtectedRoute component={() => <DashboardLayout><Agents /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/conversations">{() => <ProtectedRoute component={() => <DashboardLayout><Conversations /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/leads">{() => <ProtectedRoute component={() => <DashboardLayout><Leads /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/collected-data">{() => <ProtectedRoute component={() => <DashboardLayout><DataSources /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/workflows">{() => <ProtectedRoute component={() => <DashboardLayout><Workflows /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/analytics">{() => <ProtectedRoute component={() => <DashboardLayout><Analytics /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/analytics/topics">{() => <ProtectedRoute component={() => <DashboardLayout><Analytics /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/analytics/sentiment">{() => <ProtectedRoute component={() => <DashboardLayout><Analytics /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/contacts">{() => <ProtectedRoute component={() => <DashboardLayout><Contacts /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/channels">{() => <ProtectedRoute component={() => <DashboardLayout><Channels /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/integrations">{() => <ProtectedRoute component={() => <DashboardLayout><Integrations /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/outbound">{() => <ProtectedRoute component={() => <DashboardLayout><Outbound /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/helpdesk">{() => <ProtectedRoute component={() => <DashboardLayout><Helpdesk /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/data-sources">{() => <ProtectedRoute component={() => <DashboardLayout><DataSources /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/getting-started">{() => <ProtectedRoute component={() => <DashboardLayout><GettingStarted /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/settings">{() => <ProtectedRoute component={() => <DashboardLayout><Settings /></DashboardLayout>} />}</Route>
+      <Route path={"/use-cases/:slug"} component={ReferenceSolutionPage} />
+      <Route path={"/industries/:slug"} component={ReferenceSolutionPage} />
+      <Route path={"/features/:slug"} component={ReferenceSolutionPage} />
+      <Route path={"/changelog/center-stage-is-live"} component={ChangelogPage} />
+      <Route path={"/solutions/:slug"} component={SolutionDetailPage} />
+      <Route path={"/solutions"} component={SolutionsPage} />
+      <Route path={"/resources/guide"} component={GuidePage} />
+      <Route path={"/resources"} component={ResourcesPage} />
+      <Route path={"/blog/ai-agents-platform"} component={ArticlePage} />
+      <Route path={"/blog/:slug"} component={ArticlePage} />
+      <Route path={"/blog"} component={BlogPage} />
+      <Route path={"/docs"} component={DocsPage} />
+      <Route path={"/changelog"} component={ChangelogPage} />
+      <Route path={"/customers/:slug"} component={CustomerStoryDetail} />
+      <Route path={"/customers"} component={CustomersPage} />
+      <Route path={"/enterprise"} component={EnterprisePage} />
+      <Route path={"/pricing"} component={PricingPage} />
+      <Route path={"/404"} component={NotFound} />
+      <Route component={NotFound} />
+    </Switch></RouteTransition>
   );
 }
 
-function ProtectedApplication() {
-  const { isAuthenticated, loading } = useAuth();
-  if (loading) {
-    return <div style={{ display: "grid", minHeight: "100vh", placeItems: "center", color: "#6B7280", fontSize: 14 }}>Verifying session...</div>;
-  }
-  if (!isAuthenticated) return <Navigate to="/auth/signin" replace />;
-  return (
-    <WorkspaceProvider>
-      <AppLayout />
-    </WorkspaceProvider>
-  );
-}
-
-const router = createBrowserRouter([
-  {
-    path: "/",
-    Component: PageTransitionWrapper,
-    children: [
-      { index: true, Component: Home },
-      { path: "login", Component: Login },
-      { path: "signup", Component: Signup },
-      { path: "auth/signin", Component: Login },
-      { path: "auth/signup", Component: Signup },
-      { path: "forgot-password", Component: ForgotPassword },
-      {
-        path: "dashboard",
-        Component: ProtectedApplication,
-        children: [
-          { index: true, Component: Backstage },
-          { path: "playground", Component: Playground },
-          { path: "playground/instructions", Component: Playground },
-          { path: "playground/procedures", Component: Playground },
-          { path: "playground/suggestions", Component: Playground },
-          { path: "agents", Component: Agents },
-          { path: "conversations", Component: Conversations },
-          { path: "collected-data", Component: Data },
-          { path: "data-sources", Component: Data },
-          { path: "analytics", Component: Analytics },
-          { path: "analytics/topics", Component: Analytics },
-          { path: "analytics/sentiment", Component: Analytics },
-          { path: "contacts", Component: Contacts },
-          { path: "channels", Component: Channels },
-          { path: "integrations", Component: Integrations },
-          { path: "outbound", Component: Activity },
-          { path: "helpdesk", Component: Helpdesk },
-          { path: "getting-started", Component: Activity },
-          { path: "settings", Component: Settings },
-        ],
-      },
-      { path: "*", Component: NotFound },
-    ],
-  },
-]);
-
-export default function App() {
+function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
-          <RouterProvider router={router} />
+          <Router />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
 }
+
+export default App;

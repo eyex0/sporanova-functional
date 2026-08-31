@@ -335,7 +335,8 @@
 .playground-preview {
   width: 460px;
   background: #FAFAF8;
-  background-image: radial-gradient(circle, #E5E5E5 1px, transparent 1px);
+  background-image:
+    radial-gradient(circle, #E5E5E5 1px, transparent 1px);
   background-size: 18px 18px;
   display: flex;
   align-items: center;

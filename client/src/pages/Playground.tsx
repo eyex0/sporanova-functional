@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { trpc } from "@/lib/trpc";
+import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { agentsApi } from "@/lib/trpc";
 import {
   Eye,
   RefreshCw,
@@ -12,10 +12,10 @@ import {
   Underline,
   List,
   ListOrdered,
+  Maximize2,
   Type,
   Image as ImageIcon,
   Link as LinkIcon,
-  Maximize2,
   MoreHorizontal,
 } from "lucide-react";
 import "./Playground.css";
@@ -37,7 +37,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function Playground() {
-  const { workspaceId } = useWorkspace();
+  const { user, workspaceId } = useAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [tab, setTab] = useState<"overview" | "display" | "voice" | "actions">("overview");
@@ -49,21 +49,35 @@ export default function Playground() {
     { role: "assistant", text: "Hi! What can I help you with?" },
   ]);
 
-  const agentsQuery = trpc.agents.list.useQuery(
-    { workspaceId: workspaceId ?? 0 },
-    { enabled: Boolean(workspaceId) }
-  );
-
   useEffect(() => {
-    if (agentsQuery.data && agentsQuery.data.length > 0 && !activeAgent) {
-      setAgents(agentsQuery.data as Agent[]);
-      setActiveAgent(agentsQuery.data[0] as Agent);
-    }
-  }, [agentsQuery.data]);
+    if (!workspaceId) return;
+    agentsApi.list({ workspaceId }).then((res) => {
+      const data = res as unknown as Agent[];
+      setAgents(data);
+      if (data.length > 0 && !activeAgent) setActiveAgent(data[0]);
+    }).catch(() => {});
+  }, [workspaceId]);
 
   useEffect(() => {
     if (activeAgent) setInstructions(activeAgent.purpose);
   }, [activeAgent]);
+
+  const saveInstructions = async () => {
+    if (!workspaceId || !activeAgent) return;
+    setSaving(true);
+    try {
+      await agentsApi.create({
+        workspaceId,
+        name: activeAgent.name,
+        purpose: instructions,
+        description: instructions.slice(0, 240),
+      });
+    } catch {
+      // best effort
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const sendMessage = () => {
     if (!inputValue.trim()) return;
@@ -100,13 +114,13 @@ export default function Playground() {
           </button>
           <button className="playground-btn-primary">
             Deploy
-            <span className="playground-btn-chevron">&#x2304;</span>
+            <span className="playground-btn-chevron">⌄</span>
           </button>
         </div>
       </div>
 
       <div className="playground-body">
-        {/* Left config panel */}
+        {/* Left configuration panel */}
         <div className="playground-config">
           <div className="playground-tabs">
             {(["overview", "display", "voice", "actions"] as const).map((t) => (
@@ -144,7 +158,7 @@ export default function Playground() {
                 className="playground-textarea"
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder={"### Business Context\nSOPRANOVA provides enterprise-grade conversational AI agents..."}
+                placeholder="### Business Context&#10;SOPRANOVA provides enterprise-grade..."
               />
 
               <div className="playground-visibility">
@@ -159,7 +173,11 @@ export default function Playground() {
                   <span className="playground-toggle-handle" />
                 </button>
               </div>
-              <button className="playground-btn-primary playground-btn-block" disabled={saving}>
+              <button
+                className="playground-btn-primary playground-btn-block"
+                onClick={saveInstructions}
+                disabled={saving}
+              >
                 {saving ? "Saving..." : "Save instructions"}
               </button>
             </div>

@@ -1,0 +1,388 @@
+.workflows-page {
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1A1F3C;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.page-header p {
+  font-size: 14px;
+  color: #6B7280;
+  margin: 4px 0 0;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: #6366F1;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: #4F46E5;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Filter Bar */
+.workflows-filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.workflows-filter-bar button {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid #E8E6E1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.workflows-filter-bar button:hover {
+  border-color: #1A1F3C;
+  color: #1A1F3C;
+}
+
+.workflows-filter-bar button.active {
+  background: #1A1F3C;
+  border-color: #1A1F3C;
+  color: #fff;
+}
+
+/* Grid */
+.workflows-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .workflows-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .workflows-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card */
+.workflow-card {
+  background: #fff;
+  border: 1px solid #E8E6E1;
+  border-radius: 12px;
+  padding: 24px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border-color: #D1D0CC;
+}
+
+.workflow-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.workflow-icon {
+  width: 40px;
+  height: 40px;
+  background: #EEF2FF;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366F1;
+  flex-shrink: 0;
+}
+
+.workflow-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workflow-card-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1A1F3C;
+  margin: 0;
+}
+
+/* Status Badge */
+.status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-transform: capitalize;
+  width: fit-content;
+}
+
+.status-badge.status-active {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.status-badge.status-paused {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.status-badge.status-draft {
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+.status-badge.status-archived {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+/* Description */
+.workflow-desc {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+/* Meta */
+.workflow-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #9CA3AF;
+  margin-bottom: 16px;
+  margin-top: auto;
+}
+
+/* Card Actions */
+.workflow-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workflow-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #E8E6E1;
+  background: #fff;
+  color: #1A1F3C;
+  transition: all 0.15s;
+}
+
+.workflow-card-actions button:hover {
+  background: #F9FAFB;
+  border-color: #D1D0CC;
+}
+
+.workflow-card-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-run {
+  color: #6366F1 !important;
+  border-color: #C7D2FE !important;
+  background: #EEF2FF !important;
+}
+
+.btn-run:hover:not(:disabled) {
+  background: #E0E7FF !important;
+}
+
+.btn-edit {
+  color: #374151 !important;
+}
+
+.btn-toggle.pause {
+  color: #D97706 !important;
+  border-color: #FDE68A !important;
+  background: #FFFBEB !important;
+}
+
+.btn-toggle.pause:hover {
+  background: #FEF3C7 !important;
+}
+
+.btn-toggle.resume {
+  color: #059669 !important;
+  border-color: #A7F3D0 !important;
+  background: #ECFDF5 !important;
+}
+
+.btn-toggle.resume:hover {
+  background: #D1FAE5 !important;
+}
+
+/* Empty State */
+.workflows-empty {
+  text-align: center;
+  padding: 64px 24px;
+  color: #9CA3AF;
+}
+
+.workflows-empty p {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.workflows-empty span {
+  font-size: 13px;
+  color: #9CA3AF;
+}
+
+/* Loading */
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #E8E6E1;
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: workflows-spin 0.6s linear infinite;
+  margin: 48px auto;
+}
+
+@keyframes workflows-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.modal h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1A1F3C;
+  margin: 0 0 24px;
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.modal input,
+.modal textarea,
+.modal select {
+  padding: 10px 12px;
+  border: 1px solid #E8E6E1;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1A1F3C;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.modal select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.modal input:focus,
+.modal textarea:focus,
+.modal select:focus {
+  border-color: #6366F1;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.btn-cancel {
+  padding: 10px 18px;
+  background: transparent;
+  border: 1px solid #E8E6E1;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-cancel:hover {
+  background: #F9FAFB;
+  border-color: #D1D0CC;
+}

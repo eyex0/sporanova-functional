@@ -1,262 +1,257 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
-import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
-import { Button } from "./ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import Logo from "@/components/Logo";
+import {
+  ChevronsUpDown,
+  Search,
+  Sparkles,
+  Hammer,
+  Activity,
+  BarChart3,
+  MessageSquare,
+  Users,
+  BookOpen,
+  Layers,
+  Send,
+  Inbox,
+  Settings,
+  HelpCircle,
+  ExternalLink,
+  LogOut,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  Plus,
+  Headphones,
+  CircleHelp,
+  CircleUser,
+} from "lucide-react";
+import "./DashboardLayout.css";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
-];
-
-const SIDEBAR_WIDTH_KEY = "sidebar-width";
-const DEFAULT_WIDTH = 280;
-const MIN_WIDTH = 200;
-const MAX_WIDTH = 480;
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-    return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
-  });
-  const { loading, user } = useAuth();
-
-  useEffect(() => {
-    localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
-  }, [sidebarWidth]);
-
-  if (loading) {
-    return <DashboardLayoutSkeleton />
-  }
-
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
-            </p>
-          </div>
-          <Button
-            onClick={() => startLogin()}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            Sign in
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": `${sidebarWidth}px`,
-        } as CSSProperties
-      }
-    >
-      <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>
-        {children}
-      </DashboardLayoutContent>
-    </SidebarProvider>
-  );
-}
-
-type DashboardLayoutContentProps = {
-  children: React.ReactNode;
-  setSidebarWidth: (width: number) => void;
+type NavItem = {
+  label: string;
+  path?: string;
+  icon: React.ComponentType<{ size?: number }>;
+  hasSubmenu?: boolean;
+  subItems?: Array<{ label: string; path: string }>;
+  defaultOpen?: boolean;
 };
 
-function DashboardLayoutContent({
-  children,
-  setSidebarWidth,
-}: DashboardLayoutContentProps) {
-  const { user, logout } = useAuth();
+const mainNavItems: NavItem[] = [
+  { label: "Backstage", path: "/dashboard", icon: Sparkles },
+  {
+    label: "Playground",
+    path: "/dashboard/playground",
+    icon: Headphones,
+  },
+  {
+    label: "Build",
+    icon: Hammer,
+    hasSubmenu: true,
+    subItems: [
+      { label: "Instructions", path: "/dashboard/playground/instructions" },
+      { label: "Data sources", path: "/dashboard/data-sources" },
+      { label: "Actions", path: "/dashboard/integrations" },
+      { label: "Widgets", path: "/dashboard/channels" },
+      { label: "Procedures", path: "/dashboard/playground/procedures" },
+      { label: "Suggestions", path: "/dashboard/playground/suggestions" },
+    ],
+  },
+  {
+    label: "Activity",
+    icon: Activity,
+    hasSubmenu: true,
+    subItems: [
+      { label: "Conversations", path: "/dashboard/conversations" },
+      { label: "Leads", path: "/dashboard/leads" },
+      { label: "Collected data", path: "/dashboard/collected-data" },
+    ],
+  },
+  {
+    label: "Analytics",
+    icon: BarChart3,
+    hasSubmenu: true,
+    subItems: [
+      { label: "Chats", path: "/dashboard/analytics" },
+      { label: "Topics", path: "/dashboard/analytics/topics" },
+      { label: "Sentiment", path: "/dashboard/analytics/sentiment" },
+    ],
+  },
+  { label: "Contacts", path: "/dashboard/contacts", icon: Users },
+  { label: "Channels", path: "/dashboard/channels", icon: Layers },
+  { label: "Integrations", path: "/dashboard/integrations", icon: BookOpen },
+  { label: "Outbound", path: "/dashboard/outbound", icon: Send },
+  { label: "Helpdesk inbox", path: "/dashboard/helpdesk", icon: Inbox },
+  { label: "Settings", path: "/dashboard/settings", icon: Settings },
+];
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
-  const { state, toggleSidebar } = useSidebar();
-  const isCollapsed = state === "collapsed";
-  const [isResizing, setIsResizing] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
-  const isMobile = useIsMobile();
+  const { user, logout } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
+  const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(
+    new Set(["Playground", "Build", "Activity", "Analytics"])
+  );
+
+  const isActive = (path: string) =>
+    location === path || (path !== "/dashboard" && location.startsWith(path + "/")) || location === path;
+
+  const toggleSubmenu = (label: string) => {
+    setOpenSubmenus((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
   useEffect(() => {
-    if (isCollapsed) {
-      setIsResizing(false);
-    }
-  }, [isCollapsed]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-
-      const sidebarLeft = sidebarRef.current?.getBoundingClientRect().left ?? 0;
-      const newWidth = e.clientX - sidebarLeft;
-      if (newWidth >= MIN_WIDTH && newWidth <= MAX_WIDTH) {
-        setSidebarWidth(newWidth);
+    // Auto-open the submenu containing the current path
+    for (const item of mainNavItems) {
+      if (item.subItems && item.subItems.some((s) => isActive(s.path))) {
+        setOpenSubmenus((prev) => {
+          if (prev.has(item.label)) return prev;
+          const next = new Set(prev);
+          next.add(item.label);
+          return next;
+        });
       }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
     }
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-  }, [isResizing, setSidebarWidth]);
+  }, [location]);
 
   return (
-    <>
-      <div className="relative" ref={sidebarRef}>
-        <Sidebar
-          collapsible="icon"
-          className="border-r-0"
-          disableTransition={isResizing}
-        >
-          <SidebarHeader className="h-16 justify-center">
-            <div className="flex items-center gap-3 px-2 transition-all w-full">
-              <button
-                onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
-                aria-label="Toggle navigation"
-              >
-                <PanelLeft className="h-4 w-4 text-muted-foreground" />
-              </button>
-              {!isCollapsed ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
-                    Navigation
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          </SidebarHeader>
+    <div className="dashboard-layout">
+      <aside className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
+        <div className="sidebar-header">
+          {!collapsed && <Logo size={20} color="#FFFFFF" />}
+          <button
+            className="sidebar-toggle"
+            onClick={() => setCollapsed((prev) => !prev)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
 
-          <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = location === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarContent>
-
-          <SidebarFooter className="p-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
-                      {user?.name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
-                    <p className="text-sm font-medium truncate leading-none">
-                      {user?.name || "-"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1.5">
-                      {user?.email || "-"}
-                    </p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarFooter>
-        </Sidebar>
-        <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors ${isCollapsed ? "hidden" : ""}`}
-          onMouseDown={() => {
-            if (isCollapsed) return;
-            setIsResizing(true);
-          }}
-          style={{ zIndex: 50 }}
-        />
-      </div>
-
-      <SidebarInset>
-        {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="tracking-tight text-foreground">
-                    {activeMenuItem?.label ?? "Menu"}
-                  </span>
-                </div>
+        {!collapsed && (
+          <div className="sidebar-workspace-selector">
+            <div className="sidebar-workspace-row">
+              <div className="sidebar-workspace-info">
+                <span className="sidebar-workspace-name">{user?.name?.split(" ")[0]?.toLowerCase() ?? "user"}'s workspace</span>
+                <span className="sidebar-workspace-badge">Free</span>
               </div>
+              <ChevronsUpDown size={14} color="rgba(255,255,255,0.5)" />
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
-      </SidebarInset>
-    </>
+
+        {!collapsed && (
+          <div className="sidebar-search">
+            <Search size={14} color="rgba(255,255,255,0.5)" />
+            <input placeholder="Search..." readOnly />
+            <span className="sidebar-search-kbd">Ctrl K</span>
+          </div>
+        )}
+
+        <nav className="sidebar-nav">
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.path ? isActive(item.path) : false;
+            const subActive = item.subItems?.some((s) => isActive(s.path)) ?? false;
+            const isOpen = openSubmenus.has(item.label);
+
+            if (item.hasSubmenu) {
+              return (
+                <div key={item.label} className="sidebar-group">
+                  <button
+                    type="button"
+                    className={`sidebar-link ${subActive ? "sidebar-link--active" : ""}`}
+                    onClick={() => toggleSubmenu(item.label)}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon size={18} className="sidebar-link-icon" />
+                    {!collapsed && (
+                      <>
+                        <span className="sidebar-link-label">{item.label}</span>
+                        {isOpen ? <ChevronDown size={14} className="sidebar-link-chevron" /> : <ChevronRight size={14} className="sidebar-link-chevron" />}
+                      </>
+                    )}
+                  </button>
+                  {!collapsed && isOpen && item.subItems && (
+                    <div className="sidebar-submenu">
+                      {item.subItems.map((sub) => (
+                        <a
+                          key={sub.path}
+                          onClick={(e) => { e.preventDefault(); setLocation(sub.path); }}
+                          className={`sidebar-sublink ${isActive(sub.path) ? "sidebar-sublink--active" : ""}`}
+                        >
+                          {sub.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <a
+                key={item.label}
+                onClick={(e) => { e.preventDefault(); if (item.path) setLocation(item.path); }}
+                className={`sidebar-link ${active ? "sidebar-link--active" : ""}`}
+                title={collapsed ? item.label : undefined}
+              >
+                <Icon size={18} className="sidebar-link-icon" />
+                {!collapsed && <span className="sidebar-link-label">{item.label}</span>}
+              </a>
+            );
+          })}
+        </nav>
+
+        {!collapsed && (
+          <div className="sidebar-progress-card">
+            <a
+              className="sidebar-progress-header"
+              onClick={(e) => { e.preventDefault(); setLocation("/dashboard/getting-started"); }}
+            >
+              <span>Getting started</span>
+              <ChevronRight size={12} color="rgba(255,255,255,0.5)" />
+            </a>
+            <p className="sidebar-progress-count">0 / 2 completed</p>
+            <div className="sidebar-progress-bar">
+              <div className="sidebar-progress-bar-fill" style={{ width: "0%" }} />
+            </div>
+          </div>
+        )}
+
+        <div className="sidebar-footer">
+          {!collapsed && (
+            <>
+              <a className="sidebar-link sidebar-link--docs" onClick={(e) => e.preventDefault()}>
+                <BookOpen size={18} className="sidebar-link-icon" />
+                <span className="sidebar-link-label">Documentation</span>
+                <ExternalLink size={12} color="rgba(255,255,255,0.4)" />
+              </a>
+              <button className="sidebar-logout" onClick={() => logout()}>
+                <LogOut size={16} />
+                <span>Sign out</span>
+              </button>
+            </>
+          )}
+          {collapsed && (
+            <button
+              className="sidebar-logout sidebar-logout--icon"
+              onClick={() => logout()}
+              title="Sign out"
+            >
+              <LogOut size={18} />
+            </button>
+          )}
+        </div>
+      </aside>
+
+      <main className="dashboard-main">{children}</main>
+    </div>
   );
 }

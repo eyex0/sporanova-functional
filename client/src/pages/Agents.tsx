@@ -1,39 +1,85 @@
 import { useState } from "react";
-import { Link } from "react-router";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { trpc } from "@/lib/trpc";
-import { Bot, Plus, Play, Settings, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { agentsApi } from "@/lib/trpc";
+import {
+  Bot,
+  Plus,
+  Play,
+  Pause,
+  PlayCircle,
+  MoreHorizontal,
+  Trash2,
+  Settings,
+  ArrowRight,
+} from "lucide-react";
 import "./Agents.css";
 
-export default function Agents() {
-  const { workspaceId } = useWorkspace();
-  const [showCreate, setShowCreate] = useState(false);
-  const [filter, setFilter] = useState<"all" | "active" | "idle" | "paused">("all");
-  const [newAgent, setNewAgent] = useState({ name: "", purpose: "", description: "" });
+type AgentStatus = "active" | "idle" | "paused" | "error";
 
-  const agents = trpc.agents.list.useQuery({ workspaceId: workspaceId ?? 0 }, { enabled: Boolean(workspaceId) });
-  const createAgent = trpc.agents.create.useMutation({
+interface Agent {
+  id: string;
+  name: string;
+  purpose: string;
+  description?: string;
+  status: AgentStatus;
+  capabilities?: string[];
+}
+
+export default function Agents() {
+  const { workspaceId } = useAuth();
+  const queryClient = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState<"all" | AgentStatus>("all");
+  const [newAgent, setNewAgent] = useState({
+    name: "",
+    purpose: "",
+    description: "",
+    capabilities: "",
+  });
+
+  const { data: agents, isLoading } = useQuery({
+    queryKey: ["agents.list", workspaceId],
+    queryFn: () => agentsApi.list({ workspaceId: workspaceId! }),
+    enabled: !!workspaceId,
+  });
+
+  const createAgent = useMutation({
+    mutationFn: agentsApi.create,
     onSuccess: () => {
-      agents.refetch();
+      queryClient.invalidateQueries({ queryKey: ["agents.list"] });
       setShowCreate(false);
-      setNewAgent({ name: "", purpose: "", description: "" });
+      setNewAgent({ name: "", purpose: "", description: "", capabilities: "" });
     },
   });
 
+  const runAgent = useMutation({
+    mutationFn: agentsApi.runNow,
+  });
+
+  if (!workspaceId) {
+    return (
+      <div className="agents-page">
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
+
+  const agentList: Agent[] = (agents as Agent[] | undefined) ?? [];
+  const filtered = filter === "all" ? agentList : agentList.filter((a) => a.status === filter);
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!workspaceId) return;
     createAgent.mutate({
       workspaceId,
       name: newAgent.name,
       purpose: newAgent.purpose,
       description: newAgent.description || undefined,
-      capabilities: [],
+      capabilities: newAgent.capabilities
+        ? newAgent.capabilities.split(",").map((c) => c.trim()).filter(Boolean)
+        : [],
     });
   };
-
-  const agentList = agents.data ?? [];
-  const filtered = filter === "all" ? agentList : agentList.filter((a: any) => a.status === filter);
 
   return (
     <div className="agents-page">
@@ -50,13 +96,17 @@ export default function Agents() {
 
       <div className="agents-filter-bar">
         {(["all", "active", "idle", "paused"] as const).map((f) => (
-          <button key={f} className={filter === f ? "active" : ""} onClick={() => setFilter(f)}>
+          <button
+            key={f}
+            className={filter === f ? "active" : ""}
+            onClick={() => setFilter(f)}
+          >
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
       </div>
 
-      {agents.isLoading ? (
+      {isLoading ? (
         <div className="loading-spinner" />
       ) : filtered.length === 0 ? (
         <div className="agents-empty">
@@ -65,7 +115,7 @@ export default function Agents() {
         </div>
       ) : (
         <div className="agents-grid">
-          {filtered.map((agent: any) => (
+          {filtered.map((agent) => (
             <div className="agent-card" key={agent.id}>
               <div className="agent-card-header">
                 <div className="agent-icon">
@@ -73,29 +123,42 @@ export default function Agents() {
                 </div>
                 <div>
                   <h3>{agent.name}</h3>
-                  <span className={`status-badge ${agent.status || "active"}`}>
-                    {agent.status || "active"}
+                  <span className={`status-badge ${agent.status}`}>
+                    {agent.status}
                   </span>
                 </div>
               </div>
               <p className="agent-purpose">{agent.purpose}</p>
-              {agent.description && <p className="agent-desc">{agent.description}</p>}
+              {agent.description && (
+                <p className="agent-desc">{agent.description}</p>
+              )}
               {agent.capabilities && agent.capabilities.length > 0 && (
                 <div className="agent-capabilities">
-                  {agent.capabilities.map((cap: string) => (
-                    <span className="cap-tag" key={cap}>{cap}</span>
+                  {agent.capabilities.map((cap) => (
+                    <span className="cap-tag" key={cap}>
+                      {cap}
+                    </span>
                   ))}
                 </div>
               )}
               <div className="agent-card-actions">
-                <Link to="/dashboard/playground" className="btn-run" style={{ textDecoration: "none" }}>
+                <button
+                  className="btn-run"
+                  onClick={() =>
+                    runAgent.mutate({
+                      workspaceId,
+                      agentId: agent.id,
+                      instruction: "Run now",
+                    })
+                  }
+                >
                   <Play size={14} />
                   Run
-                </Link>
-                <Link to="/dashboard/playground" className="btn-configure" style={{ textDecoration: "none" }}>
+                </button>
+                <button className="btn-configure">
                   <Settings size={14} />
                   Configure
-                </Link>
+                </button>
               </div>
             </div>
           ))}
@@ -112,7 +175,9 @@ export default function Agents() {
                 <input
                   required
                   value={newAgent.name}
-                  onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewAgent({ ...newAgent, name: e.target.value })
+                  }
                 />
               </label>
               <label>
@@ -120,21 +185,42 @@ export default function Agents() {
                 <textarea
                   required
                   value={newAgent.purpose}
-                  onChange={(e) => setNewAgent({ ...newAgent, purpose: e.target.value })}
+                  onChange={(e) =>
+                    setNewAgent({ ...newAgent, purpose: e.target.value })
+                  }
                 />
               </label>
               <label>
                 Description
                 <textarea
                   value={newAgent.description}
-                  onChange={(e) => setNewAgent({ ...newAgent, description: e.target.value })}
+                  onChange={(e) =>
+                    setNewAgent({ ...newAgent, description: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Capabilities (comma separated)
+                <input
+                  value={newAgent.capabilities}
+                  onChange={(e) =>
+                    setNewAgent({ ...newAgent, capabilities: e.target.value })
+                  }
                 />
               </label>
               <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={() => setShowCreate(false)}>
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowCreate(false)}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={createAgent.isPending}>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={createAgent.isPending}
+                >
                   {createAgent.isPending ? "Creating..." : "Create"}
                 </button>
               </div>

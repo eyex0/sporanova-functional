@@ -1,0 +1,280 @@
+.settings-page {
+  padding: 32px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Layout */
+.settings-layout {
+  display: flex;
+  gap: 32px;
+}
+
+@media (max-width: 700px) {
+  .settings-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/* Tabs */
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B7280;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.settings-tab:hover {
+  background: #F3F4F6;
+  color: #1A1F3C;
+}
+
+.settings-tab.active {
+  background: #EEF2FF;
+  color: #6366F1;
+  font-weight: 600;
+}
+
+/* Panel */
+.settings-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-section {
+  background: #fff;
+  border: 1px solid #E8E6E1;
+  border-radius: 12px;
+  padding: 32px;
+}
+
+.settings-section h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1A1F3C;
+  margin: 0 0 4px;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0 0 28px;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #E8E6E1;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1A1F3C;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  border-color: #6366F1;
+}
+
+.form-group input.readonly {
+  background: #F9FAFB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: #9CA3AF;
+  margin-top: 4px;
+}
+
+/* Toggle Switch */
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.toggle-row:last-child {
+  border-bottom: none;
+}
+
+.toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1A1F3C;
+}
+
+.toggle-desc {
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: #D1D5DB;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.toggle-switch.on {
+  background: #6366F1;
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch.on .toggle-knob {
+  transform: translateX(20px);
+}
+
+/* Radio Group */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #E8E6E1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.radio-option:hover {
+  border-color: #D1D0CC;
+}
+
+.radio-option.selected {
+  border-color: #6366F1;
+  background: #F5F3FF;
+}
+
+.radio-option input[type="radio"] {
+  accent-color: #6366F1;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.radio-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1A1F3C;
+}
+
+.radio-desc {
+  font-size: 12px;
+  color: #9CA3AF;
+  margin-left: auto;
+}
+
+/* Loading */
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #E8E6E1;
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: settings-spin 0.6s linear infinite;
+  margin: 48px auto;
+}
+
+@keyframes settings-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Shared button */
+.settings-section .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: #6366F1;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.settings-section .btn-primary:hover {
+  background: #4F46E5;
+}
+
+.settings-section .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

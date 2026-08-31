@@ -4,6 +4,7 @@
   margin: 0 auto;
 }
 
+/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -49,6 +50,7 @@
   cursor: not-allowed;
 }
 
+/* Filter Bar */
 .agents-filter-bar {
   display: flex;
   gap: 8px;
@@ -78,6 +80,7 @@
   color: #fff;
 }
 
+/* Grid */
 .agents-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -85,13 +88,18 @@
 }
 
 @media (max-width: 900px) {
-  .agents-grid { grid-template-columns: repeat(2, 1fr); }
+  .agents-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 600px) {
-  .agents-grid { grid-template-columns: 1fr; }
+  .agents-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
+/* Card */
 .agent-card {
   background: #fff;
   border: 1px solid #E8E6E1;
@@ -141,10 +149,25 @@
   text-transform: capitalize;
 }
 
-.status-badge.active { background: #D1FAE5; color: #065F46; }
-.status-badge.idle { background: #F3F4F6; color: #6B7280; }
-.status-badge.paused { background: #FEF3C7; color: #92400E; }
-.status-badge.error { background: #FEE2E2; color: #991B1B; }
+.status-badge.active {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+.status-badge.idle {
+  background: #F3F4F6;
+  color: #6B7280;
+}
+
+.status-badge.paused {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.status-badge.error {
+  background: #FEE2E2;
+  color: #991B1B;
+}
 
 .agent-purpose {
   font-size: 13px;
@@ -182,7 +205,6 @@
   margin-top: auto;
 }
 
-.agent-card-actions a,
 .agent-card-actions button {
   display: inline-flex;
   align-items: center;
@@ -198,7 +220,6 @@
   transition: all 0.15s;
 }
 
-.agent-card-actions a:hover,
 .agent-card-actions button:hover {
   background: #F9FAFB;
   border-color: #D1D0CC;
@@ -214,6 +235,7 @@
   background: #E0E7FF !important;
 }
 
+/* Empty State */
 .agents-empty {
   text-align: center;
   padding: 64px 24px;
@@ -225,6 +247,7 @@
   font-size: 14px;
 }
 
+/* Loading */
 .loading-spinner {
   width: 24px;
   height: 24px;
@@ -236,9 +259,12 @@
 }
 
 @keyframes agents-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
+/* Modal */
 .modal-overlay {
   position: fixed;
   inset: 0;

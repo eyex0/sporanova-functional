@@ -1,17 +1,37 @@
-import { Users } from "lucide-react";
+import { Settings as SettingsIcon, Plus, Search } from "lucide-react";
+import "./SimplePage.css";
 
 export default function Contacts() {
   return (
-    <div style={{ padding: 32, maxWidth: 1200, margin: "0 auto", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1A1F3C", margin: 0, letterSpacing: "-0.02em" }}>Contacts</h1>
-          <p style={{ fontSize: 14, color: "#6B7280", margin: "4px 0 0" }}>Manage your contacts</p>
+    <div className="simple-page">
+      <header className="simple-page-header">
+        <h1>Contacts</h1>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="simple-page-btn-secondary">
+            <SettingsIcon size={14} /> Manage attributes
+          </button>
+          <button className="simple-page-btn-secondary">
+            ↑ Import
+          </button>
+          <button className="simple-page-btn-primary" style={{ background: "#0A0A0A", color: "#FFFFFF" }}>
+            <Plus size={14} /> Add contact
+          </button>
         </div>
       </header>
-      <div style={{ textAlign: "center", padding: "64px 24px", color: "#9CA3AF" }}>
-        <Users size={48} />
-        <p style={{ margin: "12px 0 0", fontSize: 14 }}>No contacts yet</p>
+      <p className="simple-page-subtitle">0 items</p>
+
+      <div style={{ background: "#FFFFFF", border: "1px solid #E5E5E5", borderRadius: 12, padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px solid #E5E5E5", borderRadius: 8, width: 280 }}>
+            <Search size={14} color="#6B7280" />
+            <input placeholder="Search" style={{ border: "none", outline: "none", flex: 1, fontSize: 14 }} />
+          </div>
+          <button className="simple-page-btn-secondary">⊞ Columns</button>
+        </div>
+        <div className="simple-page-list-empty">
+          <h3>No contacts yet</h3>
+          <p>Add contacts manually or import a CSV to get started.</p>
+        </div>
       </div>
     </div>
   );
