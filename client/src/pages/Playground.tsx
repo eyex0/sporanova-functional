@@ -1,721 +1,251 @@
-import { useParams } from "react-router";
+import { useState, useEffect } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import {
+  Eye,
+  RefreshCw,
+  ArrowUp,
+  Headphones,
+  Sparkles,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Type,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Maximize2,
+  MoreHorizontal,
+} from "lucide-react";
+import "./Playground.css";
 
-const tabs = ["Overview", "Display", "Voice", "Actions"];
+type Agent = {
+  id: number;
+  name: string;
+  description?: string | null;
+  purpose: string;
+  status: string;
+  capabilities?: string[] | null;
+};
+
+const SUGGESTED_PROMPTS = [
+  "What can you help me with?",
+  "Audit my agent's configuration for improvements",
+  "Review and improve my agent's instructions",
+  "How are my credits being used this month?",
+];
 
 export default function Playground() {
-  const { agentId } = useParams();
   const { workspaceId } = useWorkspace();
-  const [activeTab, setActiveTab] = useState("Overview");
-  const [messages, setMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
-  const [input, setInput] = useState("");
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
+  const [tab, setTab] = useState<"overview" | "display" | "voice" | "actions">("overview");
+  const [instructions, setInstructions] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [visibility, setVisibility] = useState(true);
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([
+    { role: "assistant", text: "Hi! What can I help you with?" },
+  ]);
 
-  const agents = trpc.agents.list.useQuery({ workspaceId: workspaceId ?? 0 }, { enabled: Boolean(workspaceId) });
-  const agent = agents.data?.find((a: any) => a.id === Number(agentId));
+  const agentsQuery = trpc.agents.list.useQuery(
+    { workspaceId: workspaceId ?? 0 },
+    { enabled: Boolean(workspaceId) }
+  );
 
-  const run = trpc.agents.runNow.useMutation({
-    onSuccess: (result: any) => {
-      setMessages((prev) => [...prev, { role: "ai", text: result.content }]);
-    },
-  });
+  useEffect(() => {
+    if (agentsQuery.data && agentsQuery.data.length > 0 && !activeAgent) {
+      setAgents(agentsQuery.data as Agent[]);
+      setActiveAgent(agentsQuery.data[0] as Agent);
+    }
+  }, [agentsQuery.data]);
 
-  const handleSend = () => {
-    if (!input.trim() || !workspaceId || !agentId) return;
-    const userMsg = input.trim();
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
-    setInput("");
-    run.mutate({ workspaceId, agentId: Number(agentId), instruction: userMsg });
+  useEffect(() => {
+    if (activeAgent) setInstructions(activeAgent.purpose);
+  }, [activeAgent]);
+
+  const sendMessage = () => {
+    if (!inputValue.trim()) return;
+    setMessages((prev) => [...prev, { role: "user", text: inputValue }]);
+    setInputValue("");
+    setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: "I'm a demo response. In production, this would call the SOPRANOVA agent runtime with your data sources and instructions.",
+        },
+      ]);
+    }, 600);
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 76px)", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="playground">
       {/* Top bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 24px",
-          borderBottom: "1px solid #e5e7eb",
-          background: "#fff",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e" }} />
-          <span style={{ fontSize: 16, fontWeight: 600, color: "#111827" }}>Center stage</span>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ color: "#9ca3af" }}>
-            <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+      <div className="playground-topbar">
+        <div className="playground-agent-pill">
+          <span className="playground-agent-icon">
+            <Headphones size={16} />
+          </span>
+          <span className="playground-agent-name">{activeAgent?.name ?? "SOPRANOVA"}</span>
+          <button className="playground-agent-pill-toggle">
+            <MoreHorizontal size={14} />
+          </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            style={{
-              padding: "7px 14px",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              fontSize: 13,
-              fontWeight: 500,
-              color: "#374151",
-              cursor: "pointer",
-              fontFamily: "'Inter', system-ui, sans-serif",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.2" />
-              <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-            </svg>
+        <div className="playground-topbar-actions">
+          <button className="playground-btn-secondary">
+            <Eye size={14} />
             Preview
           </button>
-          <button
-            style={{
-              padding: "7px 14px",
-              borderRadius: 8,
-              background: "#111827",
-              color: "#fff",
-              border: "none",
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "'Inter', system-ui, sans-serif",
-            }}
-          >
+          <button className="playground-btn-primary">
             Deploy
+            <span className="playground-btn-chevron">&#x2304;</span>
           </button>
         </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, overflow: "hidden" }}>
-        {/* Left: Config panel */}
-        <div style={{ borderRight: "1px solid #e5e7eb", overflowY: "auto", background: "#fff" }}>
-          {/* Tabs */}
-          <div
-            style={{
-              display: "flex",
-              gap: 0,
-              borderBottom: "1px solid #f3f4f6",
-              padding: "0 24px",
-              position: "sticky",
-              top: 0,
-              background: "#fff",
-              zIndex: 1,
-            }}
-          >
-            {tabs.map((tab) => (
+      <div className="playground-body">
+        {/* Left config panel */}
+        <div className="playground-config">
+          <div className="playground-tabs">
+            {(["overview", "display", "voice", "actions"] as const).map((t) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  padding: "14px 16px",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  border: "none",
-                  cursor: "pointer",
-                  background: "none",
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  color: activeTab === tab ? "#111827" : "#9ca3af",
-                  borderBottom: activeTab === tab ? "2px solid #111827" : "2px solid transparent",
-                  transition: "all 0.15s",
-                }}
+                key={t}
+                className={`playground-tab ${tab === t ? "playground-tab--active" : ""}`}
+                onClick={() => setTab(t)}
               >
-                {tab}
+                {t === "overview" ? "Overview" : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
 
-          <div style={{ padding: "24px" }}>
-            {/* Model */}
-            <div style={{ marginBottom: 28 }}>
-              <h3
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  margin: "0 0 10px",
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                Model
-              </h3>
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  cursor: "pointer",
-                  background: "#fff",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 1.5l1.8 3.6L14 5.7l-3 2.9.7 4.1L8 10.6l-3.7 2.1.7-4.1-3-2.9 4.2-.6L8 1.5z"
-                      fill="#6366f1"
-                    />
-                  </svg>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>Auto</span>
-                </div>
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <path d="M4 6l4 4 4-4" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Upgrade banner */}
-            <div
-              style={{
-                padding: "12px 14px",
-                borderRadius: 10,
-                background: "#f9fafb",
-                border: "1px solid #f3f4f6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 28,
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 500, color: "#374151" }}>
-                Upgrade for attachments & advanced models
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <button
-                  style={{
-                    padding: "5px 10px",
-                    borderRadius: 6,
-                    background: "#6366f1",
-                    color: "#fff",
-                    border: "none",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 2v12M2 8l6-6 6 6"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Start free trial
-                </button>
-                <button
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#9ca3af",
-                  }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Data sources */}
-            <div style={{ marginBottom: 28 }}>
-              <h3
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  margin: "0 0 10px",
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                Data sources
-              </h3>
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 8,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e" }} />
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>Trained</span>
-                </div>
-                <span style={{ fontSize: 12, color: "#9ca3af" }}>5 KB</span>
-              </div>
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M6.5 3H4.5a1 1 0 00-1 1v8a1 1 0 001 1h7a1 1 0 001-1V8"
-                      stroke="#9ca3af"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                    />
-                    <path d="M9 4h3v3" stroke="#9ca3af" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "#374151" }}>Links</span>
-                </div>
-                <span style={{ fontSize: 12, color: "#9ca3af" }}>1</span>
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div>
-              <h3
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  margin: "0 0 10px",
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                Instructions
-              </h3>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#6b7280" }}>Sync with global instructions</span>
-                <div
-                  style={{
-                    width: 36,
-                    height: 20,
-                    borderRadius: 10,
-                    background: "#22c55e",
-                    position: "relative",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: "50%",
-                      background: "#fff",
-                      position: "absolute",
-                      top: 2,
-                      right: 2,
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-                    }}
-                  />
-                </div>
-              </div>
-              <p
-                style={{
-                  fontSize: 12,
-                  color: "#9ca3af",
-                  margin: "0 0 12px",
-                  lineHeight: 1.5,
-                }}
-              >
+          {tab === "overview" && (
+            <div className="playground-config-body">
+              <p className="playground-help-text">
                 You're editing the global instructions — changes apply to every channel that syncs with global instructions.
               </p>
-              {/* Toolbar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  padding: "6px 10px",
-                  borderRadius: "10px 10px 0 0",
-                  border: "1px solid #e5e7eb",
-                  borderBottom: "none",
-                  background: "#f9fafb",
-                }}
-              >
-                <button
-                  style={{
-                    width: 28,
-                    height: 24,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#6b7280",
-                  }}
-                >
-                  B
-                </button>
-                <button
-                  style={{
-                    width: 28,
-                    height: 24,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 400,
-                    fontStyle: "italic",
-                    color: "#6b7280",
-                  }}
-                >
-                  I
-                </button>
-                <button
-                  style={{
-                    width: 28,
-                    height: 24,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 400,
-                    textDecoration: "underline",
-                    color: "#6b7280",
-                  }}
-                >
-                  U
-                </button>
-                <div style={{ width: 1, height: 16, background: "#e5e7eb", margin: "0 4px" }} />
-                <button
-                  style={{
-                    width: 28,
-                    height: 24,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#6b7280",
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path d="M6 4h7M6 8h7M6 12h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                    <circle cx="3" cy="4" r="1" fill="currentColor" />
-                    <circle cx="3" cy="8" r="1" fill="currentColor" />
-                    <circle cx="3" cy="12" r="1" fill="currentColor" />
-                  </svg>
-                </button>
-                <button
-                  style={{
-                    width: 28,
-                    height: 24,
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#6b7280",
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path d="M6 4h7M6 8h7M6 12h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                    <text x="1" y="5.5" fontSize="5" fill="currentColor" fontWeight="600">1.</text>
-                    <text x="1" y="9.5" fontSize="5" fill="currentColor" fontWeight="600">2.</text>
-                    <text x="1" y="13.5" fontSize="5" fill="currentColor" fontWeight="600">3.</text>
-                  </svg>
-                </button>
-                <div style={{ marginLeft: "auto" }}>
-                  <button
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 4,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "#9ca3af",
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <path
-                        d="M6 10l4-4M8 6h4v4"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
+
+              <div className="playground-toolbar">
+                <button><Bold size={14} /></button>
+                <button><Italic size={14} /></button>
+                <button><Underline size={14} /></button>
+                <span className="playground-toolbar-divider" />
+                <button><List size={14} /></button>
+                <button><ListOrdered size={14} /></button>
+                <span className="playground-toolbar-spacer" />
+                <button><Type size={14} /></button>
+                <button><ImageIcon size={14} /></button>
+                <button><LinkIcon size={14} /></button>
+                <button className="playground-toolbar-fullscreen"><Maximize2 size={14} /></button>
               </div>
+
               <textarea
-                readOnly
-                style={{
-                  width: "100%",
-                  minHeight: 180,
-                  padding: "12px 14px",
-                  borderRadius: "0 0 10px 10px",
-                  border: "1px solid #e5e7eb",
-                  fontSize: 13,
-                  lineHeight: 1.6,
-                  color: "#374151",
-                  outline: "none",
-                  resize: "vertical",
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  boxSizing: "border-box",
-                }}
-                defaultValue={`### Business Context\nSOPRANOVA provides enterprise-grade conversational AI agents for customer experience across chat, email, and voice. Its no-code platform helps businesses build, test, deploy, and optimize agents for support, sales, and product guidance, with sub-second responses, persistent context, 200+ integrations, data isolation, and SOC 2 compliance. The platform is trusted by over 10,000 businesses worldwide.`}
+                className="playground-textarea"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder={"### Business Context\nSOPRANOVA provides enterprise-grade conversational AI agents..."}
               />
+
+              <div className="playground-visibility">
+                <div>
+                  <h4>Visibility</h4>
+                  <p>When disabled, this channel won't be visible and no messages will be routed to your agent.</p>
+                </div>
+                <button
+                  className={`playground-toggle ${visibility ? "playground-toggle--on" : ""}`}
+                  onClick={() => setVisibility((v) => !v)}
+                >
+                  <span className="playground-toggle-handle" />
+                </button>
+              </div>
+              <button className="playground-btn-primary playground-btn-block" disabled={saving}>
+                {saving ? "Saving..." : "Save instructions"}
+              </button>
             </div>
-          </div>
+          )}
+
+          {tab === "display" && (
+            <div className="playground-config-body">
+              <h3>Display settings</h3>
+              <p className="playground-help-text">Customize the look and feel of the chat widget for this channel.</p>
+              <div className="playground-field">
+                <label>Widget name</label>
+                <input type="text" defaultValue={activeAgent?.name ?? "SOPRANOVA"} />
+              </div>
+              <div className="playground-field">
+                <label>Brand color</label>
+                <input type="color" defaultValue="#0A0A0A" />
+              </div>
+              <div className="playground-field">
+                <label>Welcome message</label>
+                <textarea defaultValue="Hi! What can I help you with?" />
+              </div>
+            </div>
+          )}
+
+          {tab === "voice" && (
+            <div className="playground-config-body">
+              <h3>Voice</h3>
+              <p className="playground-help-text">Configure voice synthesis for this channel.</p>
+              <div className="playground-field">
+                <label>Voice provider</label>
+                <select defaultValue="openai">
+                  <option value="openai">OpenAI TTS</option>
+                  <option value="elevenlabs">ElevenLabs</option>
+                  <option value="none">Disabled</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {tab === "actions" && (
+            <div className="playground-config-body">
+              <h3>Actions</h3>
+              <p className="playground-help-text">Connect external tools your agent can invoke.</p>
+              <button className="playground-btn-secondary playground-btn-block">+ Add action</button>
+            </div>
+          )}
         </div>
 
-        {/* Right: Chat preview */}
-        <div style={{ display: "flex", flexDirection: "column", background: "#f9fafb" }}>
-          {/* Chat header */}
-          <div
-            style={{
-              padding: "12px 20px",
-              borderBottom: "1px solid #f3f4f6",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              background: "#fff",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16, color: "#6366f1" }}>&#10022;</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>AI Agent</span>
+        {/* Right preview panel */}
+        <div className="playground-preview">
+          <div className="playground-preview-card">
+            <div className="playground-preview-header">
+              <span className="playground-preview-icon">
+                <Sparkles size={14} />
+              </span>
+              <span className="playground-preview-name">{activeAgent?.name ?? "SOPRANOVA"}</span>
+              <button className="playground-preview-refresh">
+                <RefreshCw size={14} />
+              </button>
             </div>
-            <button
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "#9ca3af",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M2 8a6 6 0 1112 0 6 6 0 01-12 0z"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                />
-                <path d="M8 5v3l2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-            {messages.length === 0 ? (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <p style={{ fontSize: 16, color: "#9ca3af" }}>What can I help you with today?</p>
-              </div>
-            ) : (
-              messages.map((msg, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                    gap: 8,
-                  }}
-                >
-                  {msg.role === "ai" && (
-                    <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: "50%",
-                        background: "#6366f1",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        marginTop: 2,
-                      }}
-                    >
-                      <span style={{ color: "#fff", fontSize: 14 }}>&#10022;</span>
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      maxWidth: "75%",
-                      padding: "10px 14px",
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      borderRadius:
-                        msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-                      background: msg.role === "user" ? "#111827" : "#fff",
-                      color: msg.role === "user" ? "#fff" : "#374151",
-                      border: msg.role === "ai" ? "1px solid #e5e7eb" : "none",
-                    }}
-                  >
-                    {msg.text}
-                  </div>
+            <div className="playground-preview-messages">
+              {messages.map((m, i) => (
+                <div key={i} className={`playground-message playground-message--${m.role}`}>
+                  {m.text}
                 </div>
-              ))
-            )}
-            {run.isPending && (
-              <div style={{ display: "flex", gap: 8 }}>
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "#6366f1",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ color: "#fff", fontSize: 14 }}>&#10022;</span>
-                </div>
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: "12px 12px 12px 4px",
-                    background: "#fff",
-                    border: "1px solid #e5e7eb",
-                    fontSize: 13,
-                    color: "#9ca3af",
-                  }}
-                >
-                  Thinking...
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div style={{ padding: "12px 20px", borderTop: "1px solid #f3f4f6" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                borderRadius: 12,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-              }}
-            >
+              ))}
+            </div>
+            <div className="playground-preview-suggestions">
+              {SUGGESTED_PROMPTS.slice(2, 4).map((s) => (
+                <button key={s} className="playground-suggestion" onClick={() => setInputValue(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div className="playground-preview-input">
               <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Message..."
-                style={{
-                  flex: 1,
-                  border: "none",
-                  outline: "none",
-                  fontSize: 13,
-                  fontFamily: "'Inter', system-ui, sans-serif",
-                  background: "transparent",
-                  color: "#111827",
-                }}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                placeholder="Type a message..."
               />
-              <button
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#9ca3af",
-                  flexShrink: 0,
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="6" y="2" width="4" height="7" rx="2" stroke="currentColor" strokeWidth="1.2" />
-                  <path d="M4 7a4 4 0 008 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                  <path d="M8 11v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                </svg>
-              </button>
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || run.isPending}
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: input.trim() ? "#6366f1" : "#e5e7eb",
-                  border: "none",
-                  cursor: input.trim() ? "pointer" : "default",
-                  color: input.trim() ? "#fff" : "#9ca3af",
-                  flexShrink: 0,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+              <button onClick={sendMessage} className="playground-send-btn">
+                <ArrowUp size={16} />
               </button>
             </div>
-          </div>
-
-          {/* Footer */}
-          <div style={{ padding: "8px 20px 12px", textAlign: "center" }}>
-            <span style={{ fontSize: 11, color: "#9ca3af" }}>Powered by Chatbase</span>
+            <p className="playground-preview-powered">Powered by SOPRANOVA</p>
           </div>
         </div>
       </div>
