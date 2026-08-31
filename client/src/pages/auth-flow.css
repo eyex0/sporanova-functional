@@ -1,15 +1,4 @@
-/* ── Auth Flow Styles ────────────────────────────────────── */
-
-.route-transition {
-  animation: route-in .28s cubic-bezier(.23, 1, .32, 1) both;
-}
-
-@keyframes route-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Site Shell ──────────────────────────────────────────── */
+/* ── Auth Flow — SOPRANOVA Professional Login/Signup ──────── */
 
 .auth-site {
   min-height: 100vh;
@@ -17,7 +6,7 @@
   color: var(--ink);
 }
 
-/* ── Auth Page (Two-column) ──────────────────────────────── */
+/* ── Two-Column Layout ───────────────────────────────────── */
 
 .auth-page {
   min-height: calc(100vh - 72px);
@@ -29,7 +18,7 @@
   border-right: 1px solid var(--hairline);
 }
 
-/* ── Left Column (Intro) ─────────────────────────────────── */
+/* ── Left: Hero Copy ─────────────────────────────────────── */
 
 .auth-intro {
   padding: clamp(64px, 12vh, 140px) min(8vw, 112px);
@@ -83,7 +72,7 @@
 }
 
 .auth-intro > p,
-.auth-complete p {
+.auth-complete > div > p {
   font-size: 16px;
   line-height: 1.45;
   letter-spacing: -.02em;
@@ -95,23 +84,24 @@
 .auth-points {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 
 .auth-points span {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 13px;
   color: #555;
 }
 
 .auth-points svg {
   color: #4d9a68;
+  flex-shrink: 0;
 }
 
-/* ── Right Column (Form) ─────────────────────────────────── */
+/* ── Right: Form Card ────────────────────────────────────── */
 
 .auth-form-wrap {
   display: flex;
@@ -124,36 +114,39 @@
 .auth-form-wrap form {
   background: #fff;
   border: 1px solid #dbdbd7;
-  padding: 26px;
+  padding: 32px;
   box-shadow: 0 15px 35px rgba(20, 20, 20, .04);
 }
 
 .auth-form-wrap .eyebrow {
+  display: block;
   font-size: 10px;
-  letter-spacing: .07em;
+  letter-spacing: .09em;
   text-transform: uppercase;
   font-weight: 600;
   color: #707070;
+  margin-bottom: 8px;
 }
 
 .auth-form-wrap h2 {
-  font-size: 27px;
+  font-size: 28px;
   line-height: 1.05;
-  letter-spacing: -.05em;
-  font-weight: 500;
-  margin: 12px 0 24px;
+  letter-spacing: -.04em;
+  font-weight: 600;
+  margin: 0 0 28px;
+  color: #0a0a0a;
 }
 
 /* ── Form Fields ─────────────────────────────────────────── */
 
 .auth-form-wrap label {
-  font-size: 10px;
-  letter-spacing: .07em;
+  display: block;
+  margin-top: 18px;
+  font-size: 11px;
+  letter-spacing: .06em;
   text-transform: uppercase;
   font-weight: 600;
-  color: #696969;
-  display: block;
-  margin-top: 15px;
+  color: #525252;
 }
 
 .auth-form-wrap label:first-of-type {
@@ -163,25 +156,63 @@
 .auth-form-wrap input {
   display: block;
   width: 100%;
-  margin-top: 6px;
-  padding: 11px 12px;
-  border: 1px solid #dbdbd7;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid #d4d4d4;
   border-radius: 0;
   background: #f3f6ff;
   font-size: 14px;
   font-family: inherit;
-  color: #111;
-  transition: border-color .15s;
+  color: #0a0a0a;
+  transition: border-color .15s, box-shadow .15s;
   outline: none;
   box-sizing: border-box;
 }
 
 .auth-form-wrap input:focus {
-  border-color: var(--cobalt);
+  border-color: #3b5bdb;
+  box-shadow: 0 0 0 3px rgba(59, 91, 219, .1);
 }
 
 .auth-form-wrap input::placeholder {
-  color: #aaa;
+  color: #a3a3a3;
+}
+
+/* ── Password Field ──────────────────────────────────────── */
+
+.password-field {
+  position: relative;
+}
+
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap input {
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #737373;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+
+.password-toggle:hover {
+  color: #0a0a0a;
+  background: rgba(0, 0, 0, .05);
 }
 
 /* ── Submit Button ───────────────────────────────────────── */
@@ -192,9 +223,9 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  margin-top: 20px;
-  padding: 13px 20px;
-  background: #111;
+  margin-top: 24px;
+  padding: 14px 20px;
+  background: #0a0a0a;
   color: #fff;
   border: none;
   border-radius: 0;
@@ -203,10 +234,11 @@
   font-family: inherit;
   cursor: pointer;
   transition: background .18s, transform .16s;
+  letter-spacing: -.01em;
 }
 
 .auth-primary:hover {
-  background: #333;
+  background: #262626;
 }
 
 .auth-primary:active {
@@ -216,6 +248,23 @@
 .auth-primary:disabled {
   opacity: .6;
   cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Loading Wheel ───────────────────────────────────────── */
+
+.loading-wheel {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, .3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ── Legal Text ──────────────────────────────────────────── */
@@ -224,7 +273,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 14px;
+  margin-top: 16px;
   font-size: 11px;
   color: #888;
 }
@@ -244,36 +293,20 @@
 /* ── Switch Mode ─────────────────────────────────────────── */
 
 .auth-switch {
-  margin-top: 20px;
+  margin-top: 24px;
   font-size: 13px;
   color: #666;
   text-align: center;
 }
 
 .auth-switch a {
-  color: var(--cobalt);
+  color: #3b5bdb;
   font-weight: 600;
   text-decoration: none;
 }
 
 .auth-switch a:hover {
   text-decoration: underline;
-}
-
-/* ── Loading Wheel ───────────────────────────────────────── */
-
-.loading-wheel {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, .3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ── Complete State ──────────────────────────────────────── */

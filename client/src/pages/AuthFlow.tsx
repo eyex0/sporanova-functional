@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, LockKeyhole, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import PublicNav from "@/components/PublicNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ export default function AuthFlow({ mode }: { mode: AuthMode }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [organization, setOrganization] = useState("");
   const isSignup = mode === "signup";
 
@@ -129,17 +130,27 @@ export default function AuthFlow({ mode }: { mode: AuthMode }) {
                 onChange={(e) => { setEmail(e.target.value); clearError(); }}
               />
             </label>
-            <label>
+            <label className="password-field">
               Password
-              <input
-                required
-                minLength={12}
-                type="password"
-                autoComplete={isSignup ? "new-password" : "current-password"}
-                placeholder="At least 12 characters"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); clearError(); }}
-              />
+              <div className="password-input-wrap">
+                <input
+                  required
+                  minLength={8}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  placeholder={isSignup ? "At least 8 characters" : "Enter your password"}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); clearError(); }}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </label>
             {isSignup && (
               <label>
@@ -154,7 +165,7 @@ export default function AuthFlow({ mode }: { mode: AuthMode }) {
             )}
             <button className="auth-primary" type="submit" disabled={loading}>
               {loading ? (
-                <><i className="loading-wheel" /> Preparing your workspace</>
+                <><span className="loading-wheel" /> {isSignup ? "Creating workspace..." : "Signing in..."}</>
               ) : (
                 <>{isSignup ? "Create your workspace" : "Sign in"} <ArrowRight size={16} /></>
               )}
