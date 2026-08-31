@@ -1,28 +1,146 @@
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { trpc } from "@/lib/trpc";
-import { Bot, Pause, Play, Plus, Send, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { FormEvent, useState } from "react";
+import { Link } from "react-router";
 
 export default function Agents() {
-  const { workspaceId, workspace } = useWorkspace();
-  const [filter, setFilter] = useState<"all" | "active" | "idle" | "paused">("all");
+  const { workspaceId } = useWorkspace();
   const [creating, setCreating] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const agents = trpc.agents.list.useQuery({ workspaceId: workspaceId ?? 0, status: filter === "all" ? undefined : filter }, { enabled: Boolean(workspaceId) });
+  const agents = trpc.agents.list.useQuery({ workspaceId: workspaceId ?? 0 }, { enabled: Boolean(workspaceId) });
   const create = trpc.agents.create.useMutation({ onSuccess: () => { agents.refetch(); setCreating(false); } });
-  const setStatus = trpc.agents.setStatus.useMutation({ onSuccess: () => agents.refetch() });
-  const selected = agents.data?.find(agent => agent.id === selectedId) ?? null;
-  const run = trpc.agents.runNow.useMutation();
-  const [instruction, setInstruction] = useState("");
-  const [runResult, setRunResult] = useState<string | null>(null);
-  const deploy = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!workspaceId) return; const form = new FormData(event.currentTarget); create.mutate({ workspaceId, name: String(form.get("name")), purpose: String(form.get("purpose")), description: String(form.get("description") || ""), capabilities: [] }); };
-  return <div className="grid gap-4 lg:grid-cols-[1fr_17rem] animate-in fade-in duration-300">
-    <section><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><p className="sn-label mb-1">AI Agents</p><h1 className="text-xl font-medium" style={{ fontFamily: "'Instrument Serif', serif", color: "#1A1F3C" }}>{agents.data?.filter(agent => agent.status === "active").length ?? 0} agents active</h1></div><button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#1A1F3C] px-4 py-2 text-sm font-medium text-[#F8F6F2] hover:bg-[#252B4A]"><Plus size={16} />Deploy Agent</button></div><div className="mb-4 inline-flex rounded-xl bg-[#E8E6E2] p-1">{(["all", "active", "idle", "paused"] as const).map(value => <button key={value} onClick={() => setFilter(value)} className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize ${filter === value ? "bg-[#FAFAF8] text-[#1A1F3C] shadow-sm" : "text-[#8C887F]"}`}>{value}</button>)}</div>
-      <div className="space-y-3">{agents.isLoading ? <p className="text-sm text-[#8C887F]">Loading agents…</p> : agents.data?.length ? agents.data.map(agent => <article key={agent.id} onClick={() => setSelectedId(selectedId === agent.id ? null : agent.id)} className={`cursor-pointer rounded-2xl border p-5 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#1A1F3C]/5 ${selectedId === agent.id ? "border-[#D8D6ED] bg-[#F0EFF8]" : "border-[#E8E6E2] bg-[#FAFAF8]"}`}><div className="flex gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#1A1F3C] text-sm font-semibold text-[#F8F6F2]">{agent.name[0]}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-medium">{agent.name}</h2><Status value={agent.status} /></div><p className="mt-1 truncate text-xs text-[#8C887F]">{agent.purpose}</p></div><div className="flex gap-1">{agent.status === "active" ? <button onClick={event => { event.stopPropagation(); workspaceId && setStatus.mutate({ workspaceId, agentId: agent.id, status: "paused" }); }} aria-label="Pause agent" className="rounded-lg bg-[#F4F3F0] p-2 text-[#6B6660]"><Pause size={14} /></button> : <button onClick={event => { event.stopPropagation(); workspaceId && setStatus.mutate({ workspaceId, agentId: agent.id, status: "active" }); }} aria-label="Activate agent" className="rounded-lg bg-[#F4F3F0] p-2 text-[#6B6660]"><Play size={14} /></button>}</div></div></article>) : <EmptyAgents onCreate={() => setCreating(true)} />}</div>
-    </section>
-    <aside className="rounded-2xl border border-[#E8E6E2] bg-[#FAFAF8] p-5">{selected ? <><div className="flex items-start justify-between"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#1A1F3C] text-sm font-semibold text-[#F8F6F2]">{selected.name[0]}</div><Status value={selected.status} /></div><h2 className="mt-4 text-base font-medium">{selected.name}</h2><p className="mt-2 text-sm leading-relaxed text-[#6B6660]">{selected.purpose}</p><form onSubmit={event => { event.preventDefault(); if (!workspaceId || !instruction.trim()) return; setRunResult(null); run.mutate({ workspaceId, agentId: selected.id, instruction }, { onSuccess: result => { setInstruction(""); setRunResult(result.content); } }); }} className="mt-6"><label className="sn-label mb-2 block">Run instruction</label><textarea value={instruction} onChange={event => setInstruction(event.target.value)} className="min-h-24 w-full rounded-xl bg-[#F4F3F0] p-3 text-sm outline-none ring-1 ring-transparent focus:ring-[#6B7FBF]" placeholder="Give this agent a precise task…" /><button disabled={!instruction.trim() || run.isPending} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1A1F3C] px-3 py-2.5 text-sm font-medium text-[#F8F6F2] disabled:bg-[#D4D1CB]"><Send size={14} />{run.isPending ? "Running…" : "Run now"}</button>{run.error && <p className="mt-2 text-xs text-[#B8675A]">{run.error.message}</p>}</form>{runResult && <article className="mt-4 rounded-xl bg-[#EEF6F6] p-3"><p className="sn-label text-[#4A8B8C]">Run completed</p><p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#1A1F3C]">{runResult}</p></article>}</> : <div className="grid h-full min-h-56 place-items-center text-center"><div><Bot className="mx-auto mb-3 text-[#B8B4AC]" size={24} /><p className="text-sm font-medium">Select an agent</p><p className="mt-1 text-xs leading-relaxed text-[#8C887F]">View details and run an authorized agent task.</p></div></div>}</aside>
-    {creating && <div className="fixed inset-0 z-50 grid place-items-center bg-[#1A1F3C]/35 p-4"><form onSubmit={deploy} className="w-full max-w-md rounded-2xl bg-[#FAFAF8] p-6 shadow-xl"><div className="flex items-center justify-between"><div><p className="sn-label">AI Agents</p><h2 className="mt-1 text-lg font-medium">Deploy an agent</h2></div><button type="button" onClick={() => setCreating(false)} className="rounded-lg p-2 text-[#8C887F]"><X size={18} /></button></div><label className="sn-label mt-5 block">Name<input required name="name" className="mt-2 w-full rounded-xl bg-[#F4F3F0] px-3 py-2.5 text-sm font-normal outline-none ring-1 ring-transparent focus:ring-[#6B7FBF]" /></label><label className="sn-label mt-4 block">Purpose<textarea required name="purpose" className="mt-2 min-h-24 w-full rounded-xl bg-[#F4F3F0] p-3 text-sm font-normal outline-none ring-1 ring-transparent focus:ring-[#6B7FBF]" /></label><label className="sn-label mt-4 block">Description <span className="normal-case text-[#B8B4AC]">optional</span><input name="description" className="mt-2 w-full rounded-xl bg-[#F4F3F0] px-3 py-2.5 text-sm font-normal outline-none ring-1 ring-transparent focus:ring-[#6B7FBF]" /></label><button disabled={create.isPending} className="mt-5 w-full rounded-xl bg-[#1A1F3C] py-2.5 text-sm font-medium text-[#F8F6F2]">{create.isPending ? "Deploying…" : "Deploy agent"}</button>{create.error && <p className="mt-2 text-xs text-[#B8675A]">{create.error.message}</p>}</form></div>}
-  </div>;
+
+  const deploy = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!workspaceId) return;
+    const form = new FormData(e.currentTarget);
+    create.mutate({
+      workspaceId,
+      name: String(form.get("name")),
+      purpose: String(form.get("purpose")),
+      description: String(form.get("description") || ""),
+      capabilities: [],
+    });
+  };
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111827", fontFamily: "'Inter', sans-serif", margin: 0 }}>Agents</h1>
+        <button
+          onClick={() => setCreating(true)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "10px 18px",
+            borderRadius: 10, background: "#111827", color: "#fff",
+            border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer",
+            fontFamily: "'Inter', sans-serif", transition: "all 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#1f2937")}
+          onMouseLeave={e => (e.currentTarget.style.background = "#111827")}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          New AI agent
+        </button>
+      </div>
+
+      {/* Agent cards */}
+      {agents.isLoading ? (
+        <div style={{ padding: 60, textAlign: "center", color: "#9ca3af", fontSize: 14 }}>Loading agents...</div>
+      ) : agents.data?.length ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
+          {agents.data.map(agent => (
+            <Link
+              key={agent.id}
+              to={`/app/agents/${agent.id}/playground`}
+              style={{ textDecoration: "none", borderRadius: 16, overflow: "hidden", border: "1px solid #e5e7eb", transition: "all 0.2s", cursor: "pointer" }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 8px 30px rgba(0,0,0,0.08)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = ""; e.currentTarget.style.transform = ""; }}
+            >
+              {/* Blue gradient preview */}
+              <div style={{ height: 160, background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 40%, #818cf8 100%)", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                {/* Decorative circles */}
+                <div style={{ position: "absolute", width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.08)", top: -60, right: -40 }} />
+                <div style={{ position: "absolute", width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.06)", bottom: -30, left: -20 }} />
+                {/* Agent card mockup */}
+                <div style={{ background: "#fff", borderRadius: 12, padding: 16, width: 200, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", position: "relative", zIndex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#6366f1" }} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#111827" }}>SOPRANOVA</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 4, background: "#f3f4f6", marginBottom: 6, width: "80%" }} />
+                  <div style={{ height: 20, borderRadius: 6, background: "#6366f1", width: "60%" }} />
+                </div>
+              </div>
+              {/* Agent info */}
+              <div style={{ padding: "16px 20px", background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#111827", fontFamily: "'Inter', sans-serif" }}>{agent.name}</div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                    {agent.status === "active" ? "Active" : "Last trained 2 days ago"}
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "1px solid #e5e7eb", cursor: "pointer", color: "#9ca3af" }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="4" cy="8" r="1" fill="currentColor" /><circle cx="8" cy="8" r="1" fill="currentColor" /><circle cx="12" cy="8" r="1" fill="currentColor" /></svg>
+                </button>
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        /* Empty state */
+        <div style={{ padding: 80, textAlign: "center" }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><path d="M8 12h8M12 8v8" /></svg>
+          </div>
+          <p style={{ fontSize: 16, fontWeight: 600, color: "#111827", margin: "0 0 8px" }}>No agents yet</p>
+          <p style={{ fontSize: 14, color: "#9ca3af", margin: "0 0 24px" }}>Create your first AI agent to get started.</p>
+          <button
+            onClick={() => setCreating(true)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 20px",
+              borderRadius: 10, background: "#111827", color: "#fff",
+              border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            New AI agent
+          </button>
+        </div>
+      )}
+
+      {/* Create modal */}
+      {creating && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)", padding: 16 }}>
+          <form onSubmit={deploy} style={{ width: "100%", maxWidth: 440, background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 24px 64px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111827", margin: 0, fontFamily: "'Inter', sans-serif" }}>New AI agent</h2>
+              <button type="button" onClick={() => setCreating(false)} style={{ width: 32, height: 32, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f4f6", border: "none", cursor: "pointer", color: "#6b7280" }}>
+                <X size={16} />
+              </button>
+            </div>
+            <label style={{ display: "block", marginBottom: 16 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Name</span>
+              <input required name="name" placeholder="e.g. Support Agent" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none", fontFamily: "'Inter', sans-serif" }} onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")} onBlur={e => (e.currentTarget.style.borderColor = "#e5e7eb")} />
+            </label>
+            <label style={{ display: "block", marginBottom: 16 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Purpose</span>
+              <textarea required name="purpose" placeholder="What should this agent do?" rows={3} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "'Inter', sans-serif" }} onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")} onBlur={e => (e.currentTarget.style.borderColor = "#e5e7eb")} />
+            </label>
+            <label style={{ display: "block", marginBottom: 24 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>Description <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></span>
+              <input name="description" placeholder="Additional context" style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none", fontFamily: "'Inter', sans-serif" }} onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")} onBlur={e => (e.currentTarget.style.borderColor = "#e5e7eb")} />
+            </label>
+            <button disabled={create.isPending} style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#111827", color: "#fff", border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}>
+              {create.isPending ? "Creating..." : "Create agent"}
+            </button>
+            {create.error && <p style={{ fontSize: 13, color: "#ef4444", marginTop: 8 }}>{create.error.message}</p>}
+          </form>
+        </div>
+      )}
+    </div>
+  );
 }
-function Status({ value }: { value: "active" | "idle" | "paused" | "error" }) { const colors = { active: "bg-[#EEF6F6] text-[#4A8B8C]", idle: "bg-[#F4F3F0] text-[#8C887F]", paused: "bg-[#FDF4EE] text-[#C5974A]", error: "bg-[#FDF0EE] text-[#B8675A]" }; return <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${colors[value]}`}>{value}</span>; }
-function EmptyAgents({ onCreate }: { onCreate: () => void }) { return <div className="rounded-2xl border border-dashed border-[#D4D1CB] bg-[#FAFAF8] py-16 text-center"><Bot className="mx-auto mb-3 text-[#B8B4AC]" /><p className="text-sm font-medium">No agents deployed</p><p className="mt-1 text-xs text-[#8C887F]">Deploy a scoped agent to execute real workspace tasks.</p><button onClick={onCreate} className="mt-4 text-xs font-medium text-[#6B7FBF]">Deploy agent →</button></div>; }

@@ -28,6 +28,7 @@ import Decisions from "./pages/Decisions";
 import Memory from "./pages/Memory";
 import Activity from "./pages/Activity";
 import Workspace from "./pages/Workspace";
+import Playground from "./pages/Playground";
 import NotFound from "./pages/NotFound";
 import PageTransition from "./components/PageTransition";
 
@@ -79,6 +80,16 @@ const router = createBrowserRouter([
           { path: "intelligence", Component: Intelligence },
           { path: "decisions", Component: Decisions },
           { path: "agents", Component: Agents },
+          { path: "agents/:agentId/playground", Component: Playground },
+          { path: "agents/:agentId/backstage", Component: Playground },
+          { path: "agents/:agentId/build", Component: Playground },
+          { path: "agents/:agentId/activity", Component: Activity },
+          { path: "agents/:agentId/analytics", Component: Analytics },
+          { path: "agents/:agentId/contacts", Component: Agents },
+          { path: "agents/:agentId/channels", Component: Agents },
+          { path: "agents/:agentId/integrations", Component: Agents },
+          { path: "agents/:agentId/outbound", Component: Agents },
+          { path: "agents/:agentId/settings", Component: Settings },
           { path: "data", Component: Data },
           { path: "memory", Component: Memory },
           { path: "analytics", Component: Analytics },
