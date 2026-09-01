@@ -78,11 +78,11 @@ describe("authenticated feature flows", () => {
       [{ id: 45, name: "Q3 report" }],
       [{ id: 31, conversationId: 31, role: "user", content: "What changed?" }],
     ], [1001, 1002, 1003]);
-    mocks.listLLMModels.mockResolvedValue({ data: [{ id: "gpt-5-mini" }] });
+    mocks.listLLMModels.mockResolvedValue({ data: [{ id: "gpt-4o-mini" }] });
     mocks.invokeLLM.mockResolvedValue({ choices: [{ message: { content: "Revenue declined in North. [Salesforce]" } }] });
     const caller = testRouter.createCaller(context());
     await expect(caller.intelligence.ask({ workspaceId: 7, conversationId: 31, question: "What changed in North?" })).resolves.toMatchObject({ id: 1002, content: "Revenue declined in North. [Salesforce]", sources: [{ label: "Salesforce", sourceType: "data_source", sourceReference: "44" }, { label: "Q3 report", sourceType: "document", sourceReference: "45" }] });
-    expect(mocks.invokeLLM).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-5-mini", maxTokens: 1400 }));
+    expect(mocks.invokeLLM).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-4o-mini", maxTokens: 1400 }));
     expect(insert).toHaveBeenCalledTimes(3);
     expect(update).toHaveBeenCalledTimes(1);
     expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "intelligence.asked", resourceId: 31 }));

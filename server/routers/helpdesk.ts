@@ -68,8 +68,7 @@ export const helpdeskRouter = router({
 
   listMessages: workspaceProcedure.input(idInput).query(async ({ ctx, input }) => {
     const db = await requireDb();
-    const rows = await db.select().from(ticketMessages).where(and(eq(ticketMessages.workspaceId, ctx.workspaceId), eq(ticketMessages.ticketId, input.ticketId))).orderBy(ticketMessages.createdAt);
-    return rows;
+    return db.select().from(ticketMessages).where(and(eq(ticketMessages.workspaceId, ctx.workspaceId), eq(ticketMessages.ticketId, input.ticketId))).orderBy(ticketMessages.createdAt).limit(500);
   }),
 
   createTicket: workspaceMemberProcedure.input(createInput).mutation(async ({ ctx, input }) => {

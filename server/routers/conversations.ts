@@ -1,10 +1,11 @@
-import { and, desc, eq, isNull, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { conversations, dataSources, documents, messages, messageSources } from "../../drizzle/schema";
 import { workspaceMemberProcedure, workspaceProcedure } from "../authz";
 import { requireDb, writeAuditLog } from "../db";
 import { invokeLLM, listLLMModels } from "../_core/llm";
+import { ENV } from "../_core/env";
 import { router } from "../_core/trpc";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
@@ -30,9 +31,9 @@ async function ensureConversation(workspaceId: number, conversationId: number) {
 }
 
 export const conversationsRouter = router({
-  list: workspaceProcedure.input(workspaceInput).query(async ({ ctx }) => {
+  list: workspaceProcedure.input(workspaceInput.extend({ limit: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
-    return db.select().from(conversations).where(and(eq(conversations.workspaceId, ctx.workspaceId), isNull(conversations.deletedAt))).orderBy(desc(conversations.lastMessageAt));
+    return db.select().from(conversations).where(and(eq(conversations.workspaceId, ctx.workspaceId), isNull(conversations.deletedAt))).orderBy(desc(conversations.lastMessageAt)).limit(input.limit);
   }),
 
   create: workspaceMemberProcedure.input(workspaceInput.extend({ title: z.string().trim().min(2).max(255).default("New conversation") })).mutation(async ({ ctx, input }) => {
@@ -64,9 +65,17 @@ export const conversationsRouter = router({
   messages: workspaceProcedure.input(workspaceInput.extend({ conversationId: z.number().int().positive() })).query(async ({ ctx, input }) => {
     await ensureConversation(ctx.workspaceId, input.conversationId);
     const db = await requireDb();
-    const messageList = await db.select().from(messages).where(and(eq(messages.workspaceId, ctx.workspaceId), eq(messages.conversationId, input.conversationId))).orderBy(messages.createdAt);
-    const sourceRows = messageList.length === 0 ? [] : await db.select().from(messageSources).where(eq(messageSources.workspaceId, ctx.workspaceId));
-    return messageList.map(message => ({ ...message, sources: sourceRows.filter(source => source.messageId === message.id) }));
+    const messageList = await db.select().from(messages).where(and(eq(messages.workspaceId, ctx.workspaceId), eq(messages.conversationId, input.conversationId))).orderBy(asc(messages.createdAt));
+    if (messageList.length === 0) return [];
+    const messageIds = messageList.map((message) => message.id);
+    const sourceRows = await db.select().from(messageSources).where(and(eq(messageSources.workspaceId, ctx.workspaceId), inArray(messageSources.messageId, messageIds)));
+    const sourcesByMessageId = new Map<number, typeof sourceRows>();
+    for (const source of sourceRows) {
+      const list = sourcesByMessageId.get(source.messageId);
+      if (list) list.push(source);
+      else sourcesByMessageId.set(source.messageId, [source]);
+    }
+    return messageList.map((message) => ({ ...message, sources: sourcesByMessageId.get(message.id) ?? [] }));
   }),
 
   search: workspaceProcedure.input(workspaceInput.extend({ query: z.string().trim().min(2).max(120), pageSize: z.number().int().min(1).max(30).default(10) })).query(async ({ ctx, input }) => {
@@ -95,8 +104,28 @@ export const intelligenceRouter = router({
     ]);
     const sourceNames = [...sourceRows.map(source => `${source.name} (${source.type})`), ...documentRows.map(document => document.name)];
     try {
-      const catalog = await listLLMModels();
-      const model = catalog.data.find(item => item.id === "gpt-5-mini")?.id;
+      const configuredModel = ENV.ai.model;
+      let model = configuredModel;
+      if (configuredModel) {
+        try {
+          const catalog = await listLLMModels();
+          const available = catalog.data.some((item) => item.id === configuredModel);
+          if (!available) {
+            console.warn(
+              `[intelligence.ask] Configured model "${configuredModel}" not found in provider catalog. ` +
+              `Available models sample: ${catalog.data.slice(0, 5).map((m) => m.id).join(", ")}...`,
+            );
+          }
+        } catch (catalogError) {
+          console.warn("[intelligence.ask] Could not fetch model catalog, falling back to configured model", catalogError);
+        }
+      }
+      if (!model) {
+        throw new TRPCError({
+          code: "FAILED_PRECONDITION",
+          message: "AI model is not configured. Set AI_MODEL in your environment.",
+        });
+      }
       const response = await invokeLLM({
         model,
         messages: [

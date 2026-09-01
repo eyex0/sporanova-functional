@@ -28,11 +28,12 @@ async function workspaceAgent(workspaceId: number, agentId: number) {
 }
 
 export const agentsRouter = router({
-  list: workspaceProcedure.input(workspaceIdInput.extend({ status: z.enum(["active", "idle", "paused", "error"]).optional() })).query(async ({ ctx, input }) => {
+  list: workspaceProcedure.input(workspaceIdInput.extend({ status: z.enum(["active", "idle", "paused", "error"]).optional(), limit: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const conditions = [eq(agents.workspaceId, ctx.workspaceId), isNull(agents.deletedAt)];
     if (input.status) conditions.push(eq(agents.status, input.status));
-    return db.select().from(agents).where(and(...conditions)).orderBy(desc(agents.updatedAt));
+    const items = await db.select().from(agents).where(and(...conditions)).orderBy(desc(agents.updatedAt)).limit(input.limit);
+    return items;
   }),
 
   get: workspaceProcedure.input(workspaceIdInput.extend({ agentId: z.number().int().positive() })).query(({ ctx, input }) => workspaceAgent(ctx.workspaceId, input.agentId)),

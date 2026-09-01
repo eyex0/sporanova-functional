@@ -2,6 +2,8 @@
 import "dotenv/config";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import express2 from "express";
+import helmet from "helmet";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createServer } from "http";
 
 // server/routers.ts
@@ -30,6 +32,7 @@ import {
   uniqueIndex,
   varchar
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 var usersRoleEnum = pgEnum("users_role", ["user", "admin"]);
 var users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -561,7 +564,8 @@ var contacts = pgTable(
   (table) => [
     index("contacts_workspace_status_idx").on(table.workspaceId, table.status),
     index("contacts_workspace_email_idx").on(table.workspaceId, table.email),
-    index("contacts_workspace_created_idx").on(table.workspaceId, table.createdAt)
+    index("contacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    uniqueIndex("contacts_workspace_email_unique").on(table.workspaceId, table.email).where(sql`${table.email} IS NOT NULL`)
   ]
 );
 var leadsStatusEnum = pgEnum("leads_status", ["new", "contacted", "qualified", "converted", "lost"]);
@@ -942,25 +946,131 @@ var NOT_ADMIN_ERR_MSG = "You do not have the required permission.";
 // server/_core/trpc.ts
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
+var isProd = ENV.isProduction;
+function extractPgError(error) {
+  const candidates = [error];
+  let current = error;
+  while (candidates.length < 4 && current && typeof current === "object") {
+    const obj = current;
+    if (obj.cause) candidates.push(obj.cause);
+    if (obj.errors && Array.isArray(obj.errors) && obj.errors[0]) candidates.push(obj.errors[0]);
+    current = obj.cause ?? null;
+  }
+  for (const cand of candidates) {
+    if (cand && typeof cand === "object") {
+      const e = cand;
+      if (typeof e.code === "string" || typeof e.constraint === "string") {
+        return { code: e.code, constraint: e.constraint, detail: e.detail };
+      }
+    }
+  }
+  return {};
+}
+function scrubError(error) {
+  if (error instanceof TRPCError) {
+    if (error.cause) {
+      const { code: pgCode, constraint: pgConstraint, detail } = extractPgError(error.cause);
+      if (pgCode) return toTRPCFromPg(pgCode, pgConstraint, detail);
+    }
+    if (isProd) {
+      return new TRPCError({ code: error.code, message: scrubMessage(error.message) });
+    }
+    return error;
+  }
+  if (error instanceof Error) {
+    const { code: pgCode, constraint: pgConstraint, detail } = extractPgError(error);
+    if (pgCode) return toTRPCFromPg(pgCode, pgConstraint, detail);
+    if (isProd) {
+      console.error("[trpc] Unhandled error:", error);
+      return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred. Please try again." });
+    }
+    return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: scrubMessage(error.message), cause: error });
+  }
+  return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." });
+}
+function scrubMessage(message) {
+  if (message.includes("Failed query:") || message.includes("at ") || message.includes("params:")) {
+    return "An unexpected error occurred. Please try again.";
+  }
+  return message;
+}
+function toTRPCFromPg(pgCode, pgConstraint, detail) {
+  if (pgCode === "23505") {
+    const humanConstraint = pgConstraint ? pgConstraint.replace(/^(agents|contacts|data_sources|documents|workflows|leads|tickets|users|workspaces|channels|integrations|notifications|oauth_accounts)_/, "").replace(/_unique$/, "").replace(/_/g, " ") : null;
+    return new TRPCError({
+      code: "CONFLICT",
+      message: humanConstraint ? `A record with this ${humanConstraint} already exists.` : typeof detail === "string" ? `Duplicate value: ${detail}` : "A record with these unique values already exists."
+    });
+  }
+  if (pgCode === "23503") {
+    return new TRPCError({ code: "BAD_REQUEST", message: "This operation references a record that does not exist." });
+  }
+  if (pgCode === "23502") {
+    return new TRPCError({ code: "BAD_REQUEST", message: "A required field is missing." });
+  }
+  if (pgCode === "23514") {
+    return new TRPCError({ code: "BAD_REQUEST", message: "The provided value violates a database constraint." });
+  }
+  return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "A database error occurred." });
+}
 var t = initTRPC.context().create({
-  transformer: superjson
+  transformer: superjson,
+  errorFormatter({ shape, error }) {
+    const leaksInternal = shape.data.code === "INTERNAL_SERVER_ERROR" && shape.message && (shape.message.includes("Failed query:") || shape.message.includes("params:") || shape.message.includes("at "));
+    const leaksStack = !isProd && shape.data.stack && shape.data.stack.includes("\n    at ");
+    if (leaksInternal || leaksStack || isProd) {
+      const safeMessage = leaksInternal ? "An unexpected error occurred. Please try again." : shape.message;
+      const data = {
+        code: shape.data.code,
+        httpStatus: shape.data.httpStatus
+      };
+      if (!isProd && !leaksInternal) data.stack = shape.data.stack;
+      return {
+        ...shape,
+        message: safeMessage,
+        data
+      };
+    }
+    return shape;
+  }
 });
 var router = t.router;
 var requestLogging = t.middleware(async (opts) => {
   const startedAt = Date.now();
   try {
     const result = await opts.next();
+    if (!result.ok) {
+      const scrubbed = scrubError(result.error);
+      const cause = result.error?.cause;
+      const causeCause = cause?.cause ?? null;
+      console.error(JSON.stringify({
+        event: "trpc.request",
+        path: opts.path,
+        type: opts.type,
+        userId: opts.ctx.user?.id ?? null,
+        durationMs: Date.now() - startedAt,
+        outcome: "error",
+        code: scrubbed.code,
+        errCode: cause?.code ?? null,
+        causeConstraint: cause?.constraint ?? null,
+        causeCauseCode: causeCause?.code ?? null
+      }));
+      return { ok: false, error: scrubbed };
+    }
     console.info(JSON.stringify({
       event: "trpc.request",
       path: opts.path,
       type: opts.type,
       userId: opts.ctx.user?.id ?? null,
       durationMs: Date.now() - startedAt,
-      outcome: result.ok ? "success" : "error"
+      outcome: "success"
     }));
     return result;
   } catch (error) {
     const trpcError = error instanceof TRPCError ? error : null;
+    const errAny = error;
+    const cause = errAny?.cause ?? null;
+    const causeCause = cause?.cause ?? null;
     console.error(JSON.stringify({
       event: "trpc.request",
       path: opts.path,
@@ -968,9 +1078,16 @@ var requestLogging = t.middleware(async (opts) => {
       userId: opts.ctx.user?.id ?? null,
       durationMs: Date.now() - startedAt,
       outcome: "error",
-      code: trpcError?.code ?? "INTERNAL_SERVER_ERROR"
+      code: trpcError?.code ?? "INTERNAL_SERVER_ERROR",
+      errName: error?.name,
+      errCode: errAny?.code ?? null,
+      causeName: cause?.name ?? null,
+      causeCode: cause?.code ?? null,
+      causeConstraint: cause?.constraint ?? null,
+      causeHasCause: !!causeCause,
+      causeCauseCode: causeCause?.code ?? null
     }));
-    throw error;
+    throw scrubError(error);
   }
 });
 var publicProcedure = t.procedure.use(requestLogging);
@@ -1132,7 +1249,7 @@ var agentsRouter = router({
 });
 
 // server/routers/analytics.ts
-import { and as and5, eq as eq5, gte, lt, sql } from "drizzle-orm";
+import { and as and5, eq as eq5, gte, lt, sql as sql2 } from "drizzle-orm";
 import { z as z4 } from "zod";
 var workspaceInput2 = z4.object({ workspaceId: z4.number().int().positive() });
 var rangeDays = { "7D": 7, "30D": 30, "90D": 90, "1Y": 365 };
@@ -1163,7 +1280,7 @@ var analyticsRouter = router({
   segments: workspaceProcedure.input(analyticsInput.extend({ page: z4.number().int().min(1).default(1), pageSize: z4.number().int().min(1).max(100).default(25), sortBy: z4.enum(["segment", "mrr", "nrr", "cac", "acv"]).default("segment"), sortDirection: z4.enum(["asc", "desc"]).default("asc") })).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const { start } = dates(input.range);
-    const rows = await db.select({ segment: businessMetrics.segment, metricKey: businessMetrics.metricKey, total: sql`sum(${businessMetrics.metricValue})` }).from(businessMetrics).where(and5(eq5(businessMetrics.workspaceId, ctx.workspaceId), gte(businessMetrics.metricDate, start))).groupBy(businessMetrics.segment, businessMetrics.metricKey);
+    const rows = await db.select({ segment: businessMetrics.segment, metricKey: businessMetrics.metricKey, total: sql2`sum(${businessMetrics.metricValue})` }).from(businessMetrics).where(and5(eq5(businessMetrics.workspaceId, ctx.workspaceId), gte(businessMetrics.metricDate, start))).groupBy(businessMetrics.segment, businessMetrics.metricKey);
     const grouped = /* @__PURE__ */ new Map();
     for (const row of rows) grouped.set(row.segment, { ...grouped.get(row.segment) ?? {}, [row.metricKey]: Number(row.total) });
     const items = Array.from(grouped.entries()).map(([segment, values]) => ({ segment, ...values }));
@@ -1179,11 +1296,11 @@ var analyticsRouter = router({
   topics: workspaceProcedure.input(workspaceInput2.extend({ range: z4.enum(["7D", "30D", "90D", "1Y"]).default("30D") })).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const { start } = dates(input.range);
-    const topicRows = await db.select({ topic: sql`coalesce(${messages.metadata}->>'topic', 'General')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'topic', 'General')`).orderBy(sql`count(*) desc`).limit(10);
+    const topicRows = await db.select({ topic: sql2`coalesce(${messages.metadata}->>'topic', 'General')`, count: sql2`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start))).groupBy(sql2`coalesce(${messages.metadata}->>'topic', 'General')`).orderBy(sql2`count(*) desc`).limit(10);
     const total = topicRows.reduce((sum, row) => sum + Number(row.count), 0) || 1;
     const previousStart = new Date(start);
     previousStart.setUTCDate(previousStart.getUTCDate() - rangeDays[input.range]);
-    const previousRows = await db.select({ topic: sql`coalesce(${messages.metadata}->>'topic', 'General')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, previousStart), lt(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'topic', 'General')`);
+    const previousRows = await db.select({ topic: sql2`coalesce(${messages.metadata}->>'topic', 'General')`, count: sql2`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, previousStart), lt(messages.createdAt, start))).groupBy(sql2`coalesce(${messages.metadata}->>'topic', 'General')`);
     const previousMap = new Map(previousRows.map((r) => [r.topic, Number(r.count)]));
     return {
       items: topicRows.map((row, index2) => {
@@ -1203,8 +1320,8 @@ var analyticsRouter = router({
   sentiment: workspaceProcedure.input(workspaceInput2.extend({ range: z4.enum(["7D", "30D", "90D", "1Y"]).default("30D") })).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const { start, previous } = dates(input.range);
-    const sentimentRows = await db.select({ sentiment: sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`);
-    const previousRows = await db.select({ sentiment: sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, previous), lt(messages.createdAt, start))).groupBy(sql`coalesce(${messages.metadata}->>'sentiment', 'neutral')`);
+    const sentimentRows = await db.select({ sentiment: sql2`coalesce(${messages.metadata}->>'sentiment', 'neutral')`, count: sql2`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start))).groupBy(sql2`coalesce(${messages.metadata}->>'sentiment', 'neutral')`);
+    const previousRows = await db.select({ sentiment: sql2`coalesce(${messages.metadata}->>'sentiment', 'neutral')`, count: sql2`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, previous), lt(messages.createdAt, start))).groupBy(sql2`coalesce(${messages.metadata}->>'sentiment', 'neutral')`);
     const counts = { positive: 0, neutral: 0, negative: 0 };
     for (const row of sentimentRows) {
       const key2 = row.sentiment;
@@ -1233,14 +1350,14 @@ var analyticsRouter = router({
     const db = await requireDb();
     const { start } = dates(input.range);
     if (input.metric === "conversations") {
-      const rows2 = await db.select({ date: sql`date_trunc('day', ${conversations.createdAt})::date::text`, count: sql`count(*)::int` }).from(conversations).where(and5(eq5(conversations.workspaceId, ctx.workspaceId), gte(conversations.createdAt, start))).groupBy(sql`date_trunc('day', ${conversations.createdAt})`).orderBy(sql`date_trunc('day', ${conversations.createdAt})`);
+      const rows2 = await db.select({ date: sql2`date_trunc('day', ${conversations.createdAt})::date::text`, count: sql2`count(*)::int` }).from(conversations).where(and5(eq5(conversations.workspaceId, ctx.workspaceId), gte(conversations.createdAt, start))).groupBy(sql2`date_trunc('day', ${conversations.createdAt})`).orderBy(sql2`date_trunc('day', ${conversations.createdAt})`);
       return { metric: input.metric, series: rows2.map((r) => ({ date: r.date, value: Number(r.count) })) };
     }
     if (input.metric === "messages") {
-      const rows2 = await db.select({ date: sql`date_trunc('day', ${messages.createdAt})::date::text`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), gte(messages.createdAt, start))).groupBy(sql`date_trunc('day', ${messages.createdAt})`).orderBy(sql`date_trunc('day', ${messages.createdAt})`);
+      const rows2 = await db.select({ date: sql2`date_trunc('day', ${messages.createdAt})::date::text`, count: sql2`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), gte(messages.createdAt, start))).groupBy(sql2`date_trunc('day', ${messages.createdAt})`).orderBy(sql2`date_trunc('day', ${messages.createdAt})`);
       return { metric: input.metric, series: rows2.map((r) => ({ date: r.date, value: Number(r.count) })) };
     }
-    const rows = await db.select({ date: sql`date_trunc('day', ${messages.createdAt})::date::text`, count: sql`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start), sql`coalesce(${messages.metadata}->>'sentiment', 'neutral') = 'positive'`)).groupBy(sql`date_trunc('day', ${messages.createdAt})`).orderBy(sql`date_trunc('day', ${messages.createdAt})`);
+    const rows = await db.select({ date: sql2`date_trunc('day', ${messages.createdAt})::date::text`, count: sql2`count(*)::int` }).from(messages).where(and5(eq5(messages.workspaceId, ctx.workspaceId), eq5(messages.role, "user"), gte(messages.createdAt, start), sql2`coalesce(${messages.metadata}->>'sentiment', 'neutral') = 'positive'`)).groupBy(sql2`date_trunc('day', ${messages.createdAt})`).orderBy(sql2`date_trunc('day', ${messages.createdAt})`);
     return { metric: input.metric, series: rows.map((r) => ({ date: r.date, value: Number(r.count) })) };
   })
 });
@@ -1280,7 +1397,7 @@ var auditRouter = router({
 });
 
 // server/routers/contacts.ts
-import { and as and7, desc as desc3, eq as eq7, isNull as isNull5, sql as sql2 } from "drizzle-orm";
+import { and as and7, desc as desc3, eq as eq7, isNull as isNull5, sql as sql3 } from "drizzle-orm";
 import { z as z6 } from "zod";
 var workspaceInput4 = z6.object({ workspaceId: z6.number().int().positive() });
 var listInput = workspaceInput4.extend({
@@ -1317,11 +1434,11 @@ var contactsRouter = router({
       eq7(contacts.workspaceId, ctx.workspaceId),
       isNull5(contacts.deletedAt),
       input.status ? eq7(contacts.status, input.status) : void 0,
-      input.search ? sql2`(${contacts.name} ILIKE ${`%${input.search}%`} OR ${contacts.email} ILIKE ${`%${input.search}%`} OR ${contacts.company} ILIKE ${`%${input.search}%`})` : void 0
+      input.search ? sql3`(${contacts.name} ILIKE ${`%${input.search}%`} OR ${contacts.email} ILIKE ${`%${input.search}%`} OR ${contacts.company} ILIKE ${`%${input.search}%`})` : void 0
     );
     const [rows, [{ count: count2 } = { count: 0 }]] = await Promise.all([
       db.select().from(contacts).where(where).orderBy(desc3(contacts.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
-      db.select({ count: sql2`count(*)::int` }).from(contacts).where(where)
+      db.select({ count: sql3`count(*)::int` }).from(contacts).where(where)
     ]);
     return { items: rows, total: Number(count2), page: input.page, pageSize: input.pageSize };
   }),
@@ -1392,7 +1509,7 @@ var contactsRouter = router({
 });
 
 // server/routers/conversations.ts
-import { and as and8, desc as desc4, eq as eq8, isNull as isNull6, like, or } from "drizzle-orm";
+import { and as and8, asc as asc3, desc as desc4, eq as eq8, inArray, isNull as isNull6, like, or } from "drizzle-orm";
 import { TRPCError as TRPCError5 } from "@trpc/server";
 import { z as z7 } from "zod";
 
@@ -1683,9 +1800,17 @@ var conversationsRouter = router({
   messages: workspaceProcedure.input(workspaceInput5.extend({ conversationId: z7.number().int().positive() })).query(async ({ ctx, input }) => {
     await ensureConversation(ctx.workspaceId, input.conversationId);
     const db = await requireDb();
-    const messageList = await db.select().from(messages).where(and8(eq8(messages.workspaceId, ctx.workspaceId), eq8(messages.conversationId, input.conversationId))).orderBy(messages.createdAt);
-    const sourceRows = messageList.length === 0 ? [] : await db.select().from(messageSources).where(eq8(messageSources.workspaceId, ctx.workspaceId));
-    return messageList.map((message) => ({ ...message, sources: sourceRows.filter((source) => source.messageId === message.id) }));
+    const messageList = await db.select().from(messages).where(and8(eq8(messages.workspaceId, ctx.workspaceId), eq8(messages.conversationId, input.conversationId))).orderBy(asc3(messages.createdAt));
+    if (messageList.length === 0) return [];
+    const messageIds = messageList.map((message) => message.id);
+    const sourceRows = await db.select().from(messageSources).where(and8(eq8(messageSources.workspaceId, ctx.workspaceId), inArray(messageSources.messageId, messageIds)));
+    const sourcesByMessageId = /* @__PURE__ */ new Map();
+    for (const source of sourceRows) {
+      const list = sourcesByMessageId.get(source.messageId);
+      if (list) list.push(source);
+      else sourcesByMessageId.set(source.messageId, [source]);
+    }
+    return messageList.map((message) => ({ ...message, sources: sourcesByMessageId.get(message.id) ?? [] }));
   }),
   search: workspaceProcedure.input(workspaceInput5.extend({ query: z7.string().trim().min(2).max(120), pageSize: z7.number().int().min(1).max(30).default(10) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
@@ -1706,8 +1831,27 @@ var intelligenceRouter = router({
     ]);
     const sourceNames = [...sourceRows.map((source) => `${source.name} (${source.type})`), ...documentRows.map((document) => document.name)];
     try {
-      const catalog = await listLLMModels();
-      const model = catalog.data.find((item) => item.id === "gpt-5-mini")?.id;
+      const configuredModel = ENV.ai.model;
+      let model = configuredModel;
+      if (configuredModel) {
+        try {
+          const catalog = await listLLMModels();
+          const available = catalog.data.some((item) => item.id === configuredModel);
+          if (!available) {
+            console.warn(
+              `[intelligence.ask] Configured model "${configuredModel}" not found in provider catalog. Available models sample: ${catalog.data.slice(0, 5).map((m) => m.id).join(", ")}...`
+            );
+          }
+        } catch (catalogError) {
+          console.warn("[intelligence.ask] Could not fetch model catalog, falling back to configured model", catalogError);
+        }
+      }
+      if (!model) {
+        throw new TRPCError5({
+          code: "FAILED_PRECONDITION",
+          message: "AI model is not configured. Set AI_MODEL in your environment."
+        });
+      }
       const response = await invokeLLM({
         model,
         messages: [
@@ -1926,7 +2070,15 @@ var documentsRouter = router({
     const bytes = Buffer.from(input.dataBase64, "base64");
     if (!bytes.length || bytes.length > maximumUploadBytes) throw new TRPCError6({ code: "PAYLOAD_TOO_LARGE", message: "Files must be between 1 byte and 10 MB." });
     if (!mimeMatchesBytes(input.mimeType, bytes)) throw new TRPCError6({ code: "BAD_REQUEST", message: "The file contents do not match the declared document type." });
-    const stored = await storagePut(`workspaces/${ctx.workspaceId}/documents/${Date.now()}-${safeName}`, bytes, input.mimeType);
+    let stored;
+    try {
+      stored = await storagePut(`workspaces/${ctx.workspaceId}/documents/${Date.now()}-${safeName}`, bytes, input.mimeType);
+    } catch (error) {
+      if (error instanceof S3ServiceException && (error.name === "NoSuchBucket" || error.$metadata?.httpStatusCode === 404)) {
+        throw new TRPCError6({ code: "FAILED_PRECONDITION", message: "Document storage is not configured. Please create the S3 bucket and retry." });
+      }
+      throw error;
+    }
     const db = await requireDb();
     const [docRow] = await db.insert(documents).values({ workspaceId: ctx.workspaceId, originalName: safeName, mimeType: input.mimeType, sizeBytes: bytes.length, storageKey: stored.key, storageUrl: stored.url, status: "processing", uploadedById: ctx.user.id }).returning({ id: documents.id });
     const id = docRow.id;
@@ -1957,7 +2109,7 @@ var memoryRouter = router({ summary: workspaceProcedure.input(workspaceInput6).q
 }) });
 
 // server/routers/helpdesk.ts
-import { and as and11, count, desc as desc7, eq as eq11, sql as sql3 } from "drizzle-orm";
+import { and as and11, count, desc as desc7, eq as eq11, sql as sql4 } from "drizzle-orm";
 import { z as z10 } from "zod";
 var workspaceInput7 = z10.object({ workspaceId: z10.number().int().positive() });
 var listInput2 = workspaceInput7.extend({
@@ -1998,12 +2150,12 @@ var helpdeskRouter = router({
     const where = and11(
       eq11(tickets.workspaceId, ctx.workspaceId),
       input.status ? eq11(tickets.status, input.status) : void 0,
-      input.assigneeId !== void 0 ? input.assigneeId === null ? sql3`${tickets.assigneeId} IS NULL` : eq11(tickets.assigneeId, input.assigneeId) : void 0,
-      input.search ? sql3`(${tickets.subject} ILIKE ${`%${input.search}%`} OR ${tickets.requesterEmail} ILIKE ${`%${input.search}%`} OR ${tickets.requesterName} ILIKE ${`%${input.search}%`})` : void 0
+      input.assigneeId !== void 0 ? input.assigneeId === null ? sql4`${tickets.assigneeId} IS NULL` : eq11(tickets.assigneeId, input.assigneeId) : void 0,
+      input.search ? sql4`(${tickets.subject} ILIKE ${`%${input.search}%`} OR ${tickets.requesterEmail} ILIKE ${`%${input.search}%`} OR ${tickets.requesterName} ILIKE ${`%${input.search}%`})` : void 0
     );
     const [rows, [{ totalCount } = { totalCount: 0 }]] = await Promise.all([
       db.select().from(tickets).where(where).orderBy(desc7(tickets.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
-      db.select({ totalCount: sql3`count(*)::int` }).from(tickets).where(where)
+      db.select({ totalCount: sql4`count(*)::int` }).from(tickets).where(where)
     ]);
     return { items: rows, total: Number(totalCount), page: input.page, pageSize: input.pageSize };
   }),
@@ -2177,7 +2329,7 @@ var channelsRouter = router({
 });
 
 // server/routers/leads.ts
-import { and as and13, desc as desc9, eq as eq13, isNull as isNull9, sql as sql4 } from "drizzle-orm";
+import { and as and13, desc as desc9, eq as eq13, isNull as isNull9, sql as sql5 } from "drizzle-orm";
 import { z as z12 } from "zod";
 var workspaceInput9 = z12.object({ workspaceId: z12.number().int().positive() });
 var listInput3 = workspaceInput9.extend({
@@ -2215,11 +2367,11 @@ var leadsRouter = router({
       eq13(leads.workspaceId, ctx.workspaceId),
       isNull9(leads.deletedAt),
       input.status ? eq13(leads.status, input.status) : void 0,
-      input.search ? sql4`(${leads.name} ILIKE ${`%${input.search}%`} OR ${leads.email} ILIKE ${`%${input.search}%`} OR ${leads.company} ILIKE ${`%${input.search}%`})` : void 0
+      input.search ? sql5`(${leads.name} ILIKE ${`%${input.search}%`} OR ${leads.email} ILIKE ${`%${input.search}%`} OR ${leads.company} ILIKE ${`%${input.search}%`})` : void 0
     );
     const [rows, [{ count: count2 } = { count: 0 }]] = await Promise.all([
       db.select().from(leads).where(where).orderBy(desc9(leads.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
-      db.select({ count: sql4`count(*)::int` }).from(leads).where(where)
+      db.select({ count: sql5`count(*)::int` }).from(leads).where(where)
     ]);
     return { items: rows.map((r) => ({ ...r, value: Number(r.value) })), total: Number(count2), page: input.page, pageSize: input.pageSize };
   }),
@@ -2292,7 +2444,7 @@ var leadsRouter = router({
 });
 
 // server/routers/outbound.ts
-import { and as and14, desc as desc10, eq as eq14, isNull as isNull10, sql as sql5 } from "drizzle-orm";
+import { and as and14, desc as desc10, eq as eq14, isNull as isNull10, sql as sql6 } from "drizzle-orm";
 import { z as z13 } from "zod";
 var workspaceInput10 = z13.object({ workspaceId: z13.number().int().positive() });
 var listInput4 = workspaceInput10.extend({
@@ -2328,11 +2480,11 @@ var outboundRouter = router({
       isNull10(campaigns.deletedAt),
       input.type ? eq14(campaigns.type, input.type) : void 0,
       input.status ? eq14(campaigns.status, input.status) : void 0,
-      input.search ? sql5`${campaigns.name} ILIKE ${`%${input.search}%`}` : void 0
+      input.search ? sql6`${campaigns.name} ILIKE ${`%${input.search}%`}` : void 0
     );
     const [rows, [{ count: count2 } = { count: 0 }]] = await Promise.all([
       db.select().from(campaigns).where(where).orderBy(desc10(campaigns.createdAt)).limit(input.pageSize).offset((input.page - 1) * input.pageSize),
-      db.select({ count: sql5`count(*)::int` }).from(campaigns).where(where)
+      db.select({ count: sql6`count(*)::int` }).from(campaigns).where(where)
     ]);
     return { items: rows, total: Number(count2), page: input.page, pageSize: input.pageSize };
   }),
@@ -2382,12 +2534,12 @@ var outboundRouter = router({
   campaignStats: workspaceProcedure.input(workspaceInput10).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const [totals] = await db.select({
-      total: sql5`count(*)::int`,
-      sent: sql5`coalesce(sum(${campaigns.sentCount}), 0)::int`,
-      delivered: sql5`coalesce(sum(${campaigns.deliveredCount}), 0)::int`,
-      opened: sql5`coalesce(sum(${campaigns.openedCount}), 0)::int`,
-      clicked: sql5`coalesce(sum(${campaigns.clickedCount}), 0)::int`,
-      recipients: sql5`coalesce(sum(${campaigns.recipientCount}), 0)::int`
+      total: sql6`count(*)::int`,
+      sent: sql6`coalesce(sum(${campaigns.sentCount}), 0)::int`,
+      delivered: sql6`coalesce(sum(${campaigns.deliveredCount}), 0)::int`,
+      opened: sql6`coalesce(sum(${campaigns.openedCount}), 0)::int`,
+      clicked: sql6`coalesce(sum(${campaigns.clickedCount}), 0)::int`,
+      recipients: sql6`coalesce(sum(${campaigns.recipientCount}), 0)::int`
     }).from(campaigns).where(and14(eq14(campaigns.workspaceId, ctx.workspaceId), isNull10(campaigns.deletedAt)));
     return {
       totalCampaigns: Number(totals?.total ?? 0),
@@ -2874,19 +3026,71 @@ function serveStatic(app) {
 }
 
 // server/_core/index.ts
+var ALLOWED_ORIGINS = (process.env.APP_ORIGIN ?? "http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean);
+var isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes("*")) return true;
+  return ALLOWED_ORIGINS.some((allowed) => allowed === origin);
+};
+var keyFor = (scope) => (req) => `${ipKeyGenerator(req.ip ?? "unknown")}:${scope}`;
 async function startServer() {
   if (ENV.isProduction && !ENV.sessionSecret) throw new Error("SESSION_SECRET must be configured in production");
   const app = express2();
   const server = createServer(app);
   app.disable("x-powered-by");
-  app.use(express2.json({ limit: "12mb" }));
-  app.use(express2.urlencoded({ limit: "12mb", extended: false }));
+  app.set("trust proxy", 1);
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.sopranova.com"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'", ...ALLOWED_ORIGINS],
+          fontSrc: ["'self'", "data:"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"]
+        }
+      },
+      hsts: ENV.isProduction ? { maxAge: 31536e3, includeSubDomains: true, preload: true } : false,
+      frameguard: { action: "deny" },
+      crossOriginEmbedderPolicy: false
+    })
+  );
+  app.use(express2.json({ limit: "1mb" }));
+  app.use(express2.urlencoded({ limit: "1mb", extended: false }));
+  const authLimiter = rateLimit({
+    windowMs: 60 * 1e3,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: keyFor("auth"),
+    message: { error: { json: { message: "Too many authentication attempts. Please try again later.", code: -32029 } } }
+  });
+  const intelligenceLimiter = rateLimit({
+    windowMs: 60 * 1e3,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: keyFor("intelligence"),
+    message: { error: { json: { message: "Rate limit reached for AI requests. Please slow down.", code: -32029 } } }
+  });
+  const generalLimiter = rateLimit({
+    windowMs: 60 * 1e3,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: keyFor("general")
+  });
   registerOAuthRoutes(app);
   app.get("/manus-storage/:key(*)", async (req, res) => {
     const key2 = String(req.params.key ?? "").replace(/^\/+/, "");
     const forgeBaseUrl = (process.env.BUILT_IN_FORGE_API_URL ?? "").replace(/\/+$/, "");
     const forgeKey = process.env.BUILT_IN_FORGE_API_KEY;
     if (!key2 || !forgeBaseUrl || !forgeKey) return res.status(404).end();
+    if (!/^[a-zA-Z0-9/_\-.]+$/.test(key2)) return res.status(400).end();
     try {
       const presignUrl = new URL("v1/storage/presign/get", `${forgeBaseUrl}/`);
       presignUrl.searchParams.set("path", key2);
@@ -2900,15 +3104,24 @@ async function startServer() {
     }
   });
   app.use((req, res, next) => {
-    const origin = req.headers.origin || (req.headers.host ? `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host}` : process.env.APP_ORIGIN || "http://localhost:3000");
-    res.setHeader("Access-Control-Allow-Origin", origin);
+    const origin = req.headers.origin;
+    if (origin && !isOriginAllowed(origin)) {
+      return res.status(403).json({ error: { json: { message: "Origin not allowed", code: -32003 } } });
+    }
+    res.setHeader("Access-Control-Allow-Origin", origin || ALLOWED_ORIGINS[0] || "*");
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-trpc-source");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     if (req.method === "OPTIONS") return res.status(204).end();
     next();
   });
+  app.use("/api/trpc/auth.login", authLimiter);
+  app.use("/api/trpc/auth.register", authLimiter);
+  app.use("/api/trpc/auth.requestPasswordReset", authLimiter);
+  app.use("/api/trpc/auth.resetPassword", authLimiter);
+  app.use("/api/trpc/intelligence.ask", intelligenceLimiter);
+  app.use("/api/trpc", generalLimiter);
   app.use("/api/trpc", createExpressMiddleware({ router: appRouter, createContext }));
   if (hasDistPublic()) {
     serveStatic(app);

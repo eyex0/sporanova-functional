@@ -83,7 +83,6 @@ export default function Backstage() {
       name: newName.trim(),
       purpose: "You are a helpful AI assistant for customer support.",
       description: newDescription.trim() || "General purpose support agent",
-      status: "idle",
     });
   };
 

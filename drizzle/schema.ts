@@ -13,6 +13,7 @@ import {
   uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
  * SOPRANOVA identity records. Product-level permissions are determined by
@@ -599,6 +600,7 @@ export const contacts = pgTable(
     index("contacts_workspace_status_idx").on(table.workspaceId, table.status),
     index("contacts_workspace_email_idx").on(table.workspaceId, table.email),
     index("contacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    uniqueIndex("contacts_workspace_email_unique").on(table.workspaceId, table.email).where(sql`${table.email} IS NOT NULL`),
   ],
 );
 

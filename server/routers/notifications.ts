@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { auditLogs, notifications } from "../../drizzle/schema";
@@ -35,7 +35,10 @@ export const auditRouter = router({
   list: workspaceManagerProcedure.input(workspaceInput.extend({ page: z.number().int().min(1).default(1), pageSize: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
     const offset = (input.page - 1) * input.pageSize;
-    const items = await db.select().from(auditLogs).where(eq(auditLogs.workspaceId, ctx.workspaceId)).orderBy(desc(auditLogs.createdAt)).limit(input.pageSize).offset(offset);
-    return { items, page: input.page, pageSize: input.pageSize };
+    const [items, totalResult] = await Promise.all([
+      db.select().from(auditLogs).where(eq(auditLogs.workspaceId, ctx.workspaceId)).orderBy(desc(auditLogs.createdAt)).limit(input.pageSize).offset(offset),
+      db.select({ value: count() }).from(auditLogs).where(eq(auditLogs.workspaceId, ctx.workspaceId)),
+    ]);
+    return { items, total: Number(totalResult[0]?.value ?? 0), page: input.page, pageSize: input.pageSize };
   }),
 });

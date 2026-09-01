@@ -18,14 +18,14 @@ import "./Conversations.css";
 export default function Conversations() {
   const { workspaceId } = useAuth();
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [question, setQuestion] = useState("");
   const [search, setSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations, isLoading } = useQuery({
     queryKey: ["conversations.list", workspaceId],
-    queryFn: () => conversationsApi.list({ workspaceId: workspaceId! }),
+    queryFn: () => conversationsApi.list({ workspaceId: workspaceId! }) as Promise<Array<{ id: number; title: string; createdAt: string }>>,
     enabled: !!workspaceId,
   });
 

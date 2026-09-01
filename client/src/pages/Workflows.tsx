@@ -89,7 +89,6 @@ export default function Workflows() {
       workspaceId,
       name: newWorkflow.name,
       description: newWorkflow.description || undefined,
-      status: newWorkflow.status,
       nodes: [
         {
           nodeKey: "trigger-start",
