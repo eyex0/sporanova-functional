@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import CommandPalette from "@/components/CommandPalette";
 import {
   ChevronsUpDown,
   Search,
@@ -25,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import "./DashboardLayout.css";
+import { toast } from "sonner";
 
 type NavItem = {
   label: string;
@@ -87,6 +89,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(
     new Set(["Build", "Activity", "Analytics"])
   );
+  const [cmdOpen, setCmdOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const isActive = (path: string) =>
     location === path ||
@@ -115,7 +129,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [location]);
 
   return (
-    <div className="db-layout">
+    <>
+      <div className="db-layout">
       {/* Trial Banner */}
       {bannerVisible && (
         <div className="db-trial-banner">
@@ -268,5 +283,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+    </>
   );
 }
