@@ -17,6 +17,16 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom"],
+          "vendor-radix": ["@radix-ui/react-dialog", "@radix-ui/react-dropdown-menu", "@radix-ui/react-tooltip", "@radix-ui/react-slot", "@radix-ui/react-separator", "@radix-ui/react-scroll-area", "@radix-ui/react-avatar", "@radix-ui/react-switch", "@radix-ui/react-tabs"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-tailwind": ["tailwindcss"],
+        },
+      },
+    },
   },
   server: {
     host: process.env.HOST ?? "0.0.0.0",

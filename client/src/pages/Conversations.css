@@ -98,6 +98,25 @@
   font-size: 13px;
 }
 
+.conv-load-more {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px dashed #e5e7eb;
+  border-radius: 8px;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.conv-load-more:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
 .conv-item {
   display: flex;
   align-items: center;

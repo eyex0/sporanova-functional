@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, infiniteQueryOptions } from "@tanstack/react-query";
 import { conversationsApi, intelligenceApi } from "@/lib/trpc";
 import {
   MessageSquare,
@@ -16,24 +16,32 @@ import {
 import { toast } from "sonner";
 import "./Conversations.css";
 
+const PAGE_SIZE = 30;
+
 export default function Conversations() {
   const { workspaceId } = useAuth();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [question, setQuestion] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: conversations, isLoading } = useQuery({
-    queryKey: ["conversations.list", workspaceId],
-    queryFn: () => conversationsApi.list({ workspaceId: workspaceId! }) as Promise<Array<{ id: number; title: string; createdAt: string }>>,
+  const { data, isLoading } = useQuery({
+    queryKey: ["conversations.list", workspaceId, page],
+    queryFn: () => conversationsApi.list({ workspaceId: workspaceId!, limit: PAGE_SIZE, offset: page * PAGE_SIZE }) as Promise<{ items: Array<{ id: number; title: string; createdAt: string }>; hasMore: boolean }>,
     enabled: !!workspaceId,
   });
 
+  const conversations = data?.items ?? [];
+  const hasMore = data?.hasMore ?? false;
+
   const createConversation = useMutation({
     mutationFn: conversationsApi.create,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["conversations.list"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations.list"] });
+      setPage(0);
+    },
   });
 
   const deleteConversation = useMutation({
@@ -63,8 +71,8 @@ export default function Conversations() {
     },
   });
 
-  const filteredConversations = conversations?.filter(
-    (conv: any) =>
+  const filteredConversations = conversations.filter(
+    (conv) =>
       conv.title?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -117,36 +125,43 @@ export default function Conversations() {
         <div className="conv-list">
           {isLoading ? (
             <div className="conv-loading">Loading...</div>
-          ) : filteredConversations?.length === 0 ? (
+          ) : filteredConversations.length === 0 ? (
             <div className="conv-empty-list">No conversations found</div>
           ) : (
-            filteredConversations?.map((conv: any) => (
-              <button
-                key={conv.id}
-                className={`conv-item ${selectedId === conv.id ? "active" : ""}`}
-                onClick={() => setSelectedId(conv.id)}
-              >
-                <MessageSquare size={16} className="conv-item-icon" />
-                <div className="conv-item-text">
-                  <span className="conv-title">{conv.title}</span>
-                  <span className="conv-date">
-                    {new Date(conv.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
+            <>
+              {filteredConversations.map((conv) => (
                 <button
-                  className="conv-delete-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteConversation.mutate({
-                      workspaceId,
-                      conversationId: conv.id,
-                    });
-                  }}
+                  key={conv.id}
+                  className={`conv-item ${selectedId === conv.id ? "active" : ""}`}
+                  onClick={() => setSelectedId(conv.id)}
                 >
-                  <Trash2 size={12} />
+                  <MessageSquare size={16} className="conv-item-icon" />
+                  <div className="conv-item-text">
+                    <span className="conv-title">{conv.title}</span>
+                    <span className="conv-date">
+                      {new Date(conv.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <button
+                    className="conv-delete-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteConversation.mutate({
+                        workspaceId,
+                        conversationId: conv.id,
+                      });
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </button>
-              </button>
-            ))
+              ))}
+              {hasMore && (
+                <button className="conv-load-more" onClick={() => setPage(p => p + 1)}>
+                  Load more
+                </button>
+              )}
+            </>
           )}
         </div>
       </aside>

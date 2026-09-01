@@ -31,9 +31,11 @@ async function ensureConversation(workspaceId: number, conversationId: number) {
 }
 
 export const conversationsRouter = router({
-  list: workspaceProcedure.input(workspaceInput.extend({ limit: z.number().int().min(1).max(100).default(50) })).query(async ({ ctx, input }) => {
+  list: workspaceProcedure.input(workspaceInput.extend({ limit: z.number().int().min(1).max(100).default(50), offset: z.number().int().min(0).default(0) })).query(async ({ ctx, input }) => {
     const db = await requireDb();
-    return db.select().from(conversations).where(and(eq(conversations.workspaceId, ctx.workspaceId), isNull(conversations.deletedAt))).orderBy(desc(conversations.lastMessageAt)).limit(input.limit);
+    const items = await db.select().from(conversations).where(and(eq(conversations.workspaceId, ctx.workspaceId), isNull(conversations.deletedAt))).orderBy(desc(conversations.lastMessageAt)).limit(input.limit + 1).offset(input.offset);
+    const hasMore = items.length > input.limit;
+    return { items: hasMore ? items.slice(0, input.limit) : items, hasMore };
   }),
 
   create: workspaceMemberProcedure.input(workspaceInput.extend({ title: z.string().trim().min(2).max(255).default("New conversation") })).mutation(async ({ ctx, input }) => {
