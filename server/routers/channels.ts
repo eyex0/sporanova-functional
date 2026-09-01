@@ -19,7 +19,8 @@ const DEFAULT_CHANNELS: Array<{ type: "widget" | "help_page" | "center_stage" | 
 ];
 
 function buildEmbedCode(workspaceId: number, type: string): string {
-  return `<!-- SOPRANOVA ${type} embed -->\n<script async src="https://cdn.sopranova.com/embed.js" data-workspace="${workspaceId}" data-channel="${type}"></script>`;
+  const origin = process.env.APP_URL || process.env.APP_ORIGIN || "https://sopranova-api.onrender.com";
+  return `<!-- SOPRANOVA ${type} embed -->\n<script async src="${origin}/embed.js" data-workspace="${workspaceId}" data-channel="${type}"></script>`;
 }
 
 export const channelsRouter = router({

@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { fork } from "node:child_process";
+import path from "node:path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import express from "express";
 import helmet from "helmet";
@@ -133,6 +135,13 @@ async function startServer() {
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, process.env.HOST ?? "0.0.0.0", () => {
     console.info(`SOPRANOVA API listening on http://localhost:${port}`);
+    if (ENV.isProduction || process.env.ENABLE_WORKER === "1") {
+      const workerPath = path.resolve(import.meta.dirname, "../../dist/worker.js");
+      const worker = fork(workerPath, { stdio: "inherit", env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? "production" } });
+      worker.on("error", (err) => console.error(JSON.stringify({ event: "worker.process_error", error: err.message })));
+      worker.on("exit", (code) => console.warn(JSON.stringify({ event: "worker.process_exit", code })));
+      console.info(JSON.stringify({ event: "worker.forked", pid: worker.pid }));
+    }
   });
 }
 

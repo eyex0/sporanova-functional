@@ -46,3 +46,30 @@ services:
         value: "SOPRANOVA <noreply@sopranova.com>"
       - key: EMAIL_API_KEY
         sync: false
+  - type: worker
+    name: sopranova-worker
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: node dist/worker.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        value: https://fuiuzmseqznzjjnefaep.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: openai-compatible
+      - key: AI_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: openai/gpt-4o
