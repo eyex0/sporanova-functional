@@ -152,6 +152,11 @@ export default function AuthFlow({ mode }: { mode: AuthMode }) {
                 </button>
               </div>
             </label>
+            {!isSignup && (
+              <p className="auth-forgot">
+                <Link href="/auth/forgot-password">Forgot your password?</Link>
+              </p>
+            )}
             {isSignup && (
               <label>
                 Company name

@@ -1,6 +1,7 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { agents, organizations, userPreferences, users, workspaces } from "../../drizzle/schema";
+import { agents, memberships, organizations, userPreferences, users, workspaces } from "../../drizzle/schema";
 import { workspaceManagerProcedure, workspaceProcedure } from "../authz";
 import { bootstrapWorkspace, listWorkspaceMembers, listWorkspacesForUser, requireDb, writeAuditLog } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
@@ -24,6 +25,53 @@ export const workspacesRouter = router({
   }),
 
   members: workspaceProcedure.input(workspaceIdInput).query(({ ctx }) => listWorkspaceMembers(ctx.workspaceId)),
+
+  invite: workspaceManagerProcedure
+    .input(workspaceIdInput.extend({ email: z.string().trim().email().max(320), role: z.enum(["admin", "member", "viewer"]).default("member") }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      let targetUser = (await db.select().from(users).where(eq(users.email, input.email)).limit(1))[0];
+      if (!targetUser) {
+        const openId = `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const created = await db.insert(users).values({ openId, email: input.email, name: input.email.split("@")[0], loginMethod: "invited", authProvider: "invited" }).returning();
+        targetUser = created[0];
+      }
+      const existing = (await db.select().from(memberships).where(and(eq(memberships.workspaceId, ctx.workspaceId), eq(memberships.userId, targetUser.id))).limit(1))[0];
+      if (existing) {
+        if (existing.isActive) throw new TRPCError({ code: "CONFLICT", message: "User is already a member of this workspace." });
+        await db.update(memberships).set({ isActive: true, role: input.role, updatedAt: new Date() }).where(and(eq(memberships.workspaceId, ctx.workspaceId), eq(memberships.userId, targetUser.id)));
+      } else {
+        await db.insert(memberships).values({ workspaceId: ctx.workspaceId, userId: targetUser.id, role: input.role });
+      }
+      await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workspace.member_invited", resourceType: "membership", resourceId: targetUser.id, metadata: { email: input.email, role: input.role } });
+      return { success: true, userId: targetUser.id };
+    }),
+
+  updateRole: workspaceManagerProcedure
+    .input(workspaceIdInput.extend({ userId: z.number().int().positive(), role: z.enum(["owner", "admin", "member", "viewer"]) }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot change your own role." });
+      const db = await requireDb();
+      const member = (await db.select().from(memberships).where(and(eq(memberships.workspaceId, ctx.workspaceId), eq(memberships.userId, input.userId), eq(memberships.isActive, true))).limit(1))[0];
+      if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "Member not found." });
+      if (member.role === "owner") throw new TRPCError({ code: "FORBIDDEN", message: "Cannot change the owner role." });
+      await db.update(memberships).set({ role: input.role, updatedAt: new Date() }).where(and(eq(memberships.workspaceId, ctx.workspaceId), eq(memberships.userId, input.userId)));
+      await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workspace.member_role_changed", resourceType: "membership", resourceId: input.userId, metadata: { role: input.role } });
+      return { success: true };
+    }),
+
+  remove: workspaceManagerProcedure
+    .input(workspaceIdInput.extend({ userId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.user.id) throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot remove yourself." });
+      const db = await requireDb();
+      const member = (await db.select().from(memberships).where(and(eq(memberships.workspaceId, ctx.workspaceId), eq(memberships.userId, input.userId), eq(memberships.isActive, true))).limit(1))[0];
+      if (!member) throw new TRPCError({ code: "NOT_FOUND", message: "Member not found." });
+      if (member.role === "owner") throw new TRPCError({ code: "FORBIDDEN", message: "Cannot remove the workspace owner." });
+      await db.update(memberships).set({ isActive: false, updatedAt: new Date() }).where(and(eq(memberships.workspaceId, ctx.workspaceId), eq(memberships.userId, input.userId)));
+      await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "workspace.member_removed", resourceType: "membership", resourceId: input.userId });
+      return { success: true };
+    }),
 
   completeOnboarding: workspaceManagerProcedure
     .input(

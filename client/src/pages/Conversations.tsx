@@ -13,6 +13,7 @@ import {
   Bot,
   User,
 } from "lucide-react";
+import { toast } from "sonner";
 import "./Conversations.css";
 
 export default function Conversations() {
@@ -37,8 +38,12 @@ export default function Conversations() {
 
   const deleteConversation = useMutation({
     mutationFn: conversationsApi.delete,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["conversations.list"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations.list"] });
+      if (selectedId === variables.conversationId) setSelectedId(null);
+      toast.success("Conversation deleted");
+    },
+    onError: () => toast.error("Failed to delete conversation"),
   });
 
   const { data: messages } = useQuery({

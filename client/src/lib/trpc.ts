@@ -68,6 +68,13 @@ export const workspacesApi = {
   completeOnboarding: (input: Record<string, unknown>) => trpcMutate("workspaces.completeOnboarding", input),
 };
 
+/* ===== Members ===== */
+export const membersApi = {
+  invite: (input: Record<string, unknown>) => trpcMutate("workspaces.invite", input),
+  updateRole: (input: Record<string, unknown>) => trpcMutate("workspaces.updateRole", input),
+  remove: (input: Record<string, unknown>) => trpcMutate("workspaces.remove", input),
+};
+
 /* ===== Dashboard ===== */
 export const dashboardApi = {
   overview: (input: Record<string, unknown>) => trpcFetch("dashboard.overview", input),

@@ -23,9 +23,13 @@ import Analytics from "./pages/Analytics";
 import Topics from "./pages/Topics";
 import Sentiment from "./pages/Sentiment";
 import DataSources from "./pages/DataSources";
+import Documents from "./pages/Documents";
 import Settings from "./pages/Settings";
+import Team from "./pages/Team";
 import ReferenceSolutionPage from "./pages/ReferenceSolutionPage";
 import AuthFlow from "./pages/AuthFlow";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import RouteTransition from "./components/RouteTransition";
 import Home from "./pages/Home";
 import CustomerStoryDetail from "./pages/CustomerStoryDetail";
@@ -38,6 +42,8 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/auth/signup"}>{() => <AuthFlow mode="signup" />}</Route>
       <Route path={"/auth/signin"}>{() => <AuthFlow mode="signin" />}</Route>
+      <Route path="/auth/forgot-password">{() => <ForgotPassword />}</Route>
+      <Route path="/auth/reset-password">{() => <ResetPassword />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={() => <DashboardLayout><Backstage /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/overview">{() => <ProtectedRoute component={() => <DashboardLayout><Dashboard /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/playground">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
@@ -54,8 +60,10 @@ function Router() {
       <Route path="/dashboard/outbound">{() => <ProtectedRoute component={() => <DashboardLayout><Outbound /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/helpdesk">{() => <ProtectedRoute component={() => <DashboardLayout><Helpdesk /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/data-sources">{() => <ProtectedRoute component={() => <DashboardLayout><DataSources /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/documents">{() => <ProtectedRoute component={() => <DashboardLayout><Documents /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/getting-started">{() => <ProtectedRoute component={() => <DashboardLayout><GettingStarted /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/settings">{() => <ProtectedRoute component={() => <DashboardLayout><Settings /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/team">{() => <ProtectedRoute component={() => <DashboardLayout><Team /></DashboardLayout>} />}</Route>
       <Route path={"/use-cases/:slug"} component={ReferenceSolutionPage} />
       <Route path={"/industries/:slug"} component={ReferenceSolutionPage} />
       <Route path={"/features/:slug"} component={ReferenceSolutionPage} />

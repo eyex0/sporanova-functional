@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { notificationsApi } from "@/lib/trpc";
 import CommandPalette from "@/components/CommandPalette";
 import {
+  Bell,
   ChevronsUpDown,
   Search,
   Sparkles,
@@ -46,6 +49,7 @@ const mainNavItems: NavItem[] = [
     hasSubmenu: true,
     subItems: [
       { label: "Data sources", path: "/dashboard/data-sources" },
+      { label: "Documents", path: "/dashboard/documents" },
       { label: "Actions", path: "/dashboard/integrations" },
       { label: "Widgets", path: "/dashboard/channels" },
       { label: "Procedures", path: "/dashboard/workflows" },
@@ -77,17 +81,52 @@ const mainNavItems: NavItem[] = [
   { label: "Outbound", path: "/dashboard/outbound", icon: Send },
   { label: "Helpdesk inbox", path: "/dashboard/helpdesk", icon: Inbox },
   { label: "Settings", path: "/dashboard/settings", icon: Settings },
+  { label: "Team", path: "/dashboard/team", icon: Users },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, workspaceId, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [bannerVisible, setBannerVisible] = useState(true);
   const [openSubmenus, setOpenSubmenus] = useState<Set<string>>(
     new Set(["Build", "Activity", "Analytics"])
   );
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  const { data: notifications } = useQuery({
+    queryKey: ["notifications", "list", workspaceId],
+    queryFn: () => notificationsApi.list({ workspaceId: workspaceId!, limit: 20, unreadOnly: false }),
+    enabled: !!workspaceId,
+  });
+
+  const unreadCount = Array.isArray(notifications)
+    ? notifications.filter((n: any) => !n.readAt).length
+    : 0;
+
+  const markReadMut = useMutation({
+    mutationFn: (notificationId: number) =>
+      notificationsApi.markRead({ workspaceId: workspaceId!, notificationId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  const markAllReadMut = useMutation({
+    mutationFn: () => notificationsApi.markAllRead({ workspaceId: workspaceId! }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    if (notifOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [notifOpen]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -171,6 +210,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <span>Workspace</span>
                     <span className="db-badge">Free</span>
                   </div>
+                </div>
+                <div className="db-notif-bell" ref={notifRef}>
+                  <button
+                    className="db-notif-trigger"
+                    onClick={() => setNotifOpen((v) => !v)}
+                  >
+                    <Bell size={14} />
+                    {unreadCount > 0 && (
+                      <span className="db-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                    )}
+                  </button>
+                  {notifOpen && (
+                    <div className="db-notif-dropdown">
+                      <div className="db-notif-header">
+                        <span className="db-notif-title">Notifications</span>
+                        {unreadCount > 0 && (
+                          <button
+                            className="db-notif-mark-read"
+                            onClick={() => markAllReadMut.mutate()}
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="db-notif-list">
+                        {Array.isArray(notifications) && notifications.length === 0 && (
+                          <div className="db-notif-empty">No notifications yet</div>
+                        )}
+                        {Array.isArray(notifications) &&
+                          notifications.map((notif: any) => (
+                            <button
+                              key={notif.id}
+                              className={`db-notif-item ${!notif.readAt ? "db-notif-item--unread" : ""}`}
+                              onClick={() => {
+                                if (!notif.readAt) markReadMut.mutate(notif.id);
+                              }}
+                            >
+                              <div className="db-notif-content">
+                                <span className="db-notif-item-title">{notif.title}</span>
+                                <span className="db-notif-item-msg">{notif.message}</span>
+                              </div>
+                              <span className="db-notif-time">
+                                {new Date(notif.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <ChevronsUpDown size={14} className="db-chevron" />
               </div>
