@@ -17,7 +17,7 @@ import "./Workflows.css";
 type WorkflowStatus = "active" | "paused" | "draft" | "archived";
 
 interface Workflow {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   status: WorkflowStatus;
@@ -90,6 +90,16 @@ export default function Workflows() {
       name: newWorkflow.name,
       description: newWorkflow.description || undefined,
       status: newWorkflow.status,
+      nodes: [
+        {
+          nodeKey: "trigger-start",
+          nodeType: "trigger",
+          label: "Start",
+          sortOrder: 0,
+          positionX: 0,
+          positionY: 0,
+        },
+      ],
     });
   };
 
@@ -106,7 +116,22 @@ export default function Workflows() {
         workflowId: workflow.id,
         status: "active",
       });
+    } else if (workflow.status === "draft") {
+      updateWorkflow.mutate({
+        workspaceId,
+        workflowId: workflow.id,
+        status: "active",
+      });
     }
+  };
+
+  const handleEdit = (workflow: Workflow) => {
+    setNewWorkflow({
+      name: `${workflow.name} (copy)`,
+      description: workflow.description ?? "",
+      status: "draft",
+    });
+    setShowCreate(true);
   };
 
   return (
@@ -185,11 +210,11 @@ export default function Workflows() {
                     <Play size={14} />
                     Run Now
                   </button>
-                  <button className="btn-edit">
+                  <button className="btn-edit" onClick={() => handleEdit(workflow)}>
                     <Settings size={14} />
                     Edit
                   </button>
-                  {(workflow.status === "active" || workflow.status === "paused") && (
+                  {(workflow.status === "active" || workflow.status === "paused" || workflow.status === "draft") && (
                     <button
                       className={`btn-toggle ${workflow.status === "active" ? "pause" : "resume"}`}
                       onClick={() => handleToggleStatus(workflow)}
@@ -202,7 +227,7 @@ export default function Workflows() {
                       ) : (
                         <>
                           <Play size={14} />
-                          Resume
+                          {workflow.status === "draft" ? "Activate" : "Resume"}
                         </>
                       )}
                     </button>

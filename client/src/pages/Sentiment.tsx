@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { analyticsApi } from "@/lib/trpc";
 import { SmilePlus, Meh, Frown, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import "./Analytics.css";
 
@@ -15,22 +17,15 @@ type SentimentData = {
 
 export default function Sentiment() {
   const { workspaceId } = useAuth();
-  const [data, setData] = useState<SentimentData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<"7D" | "30D" | "90D" | "1Y">("30D");
 
-  useEffect(() => {
-    if (!workspaceId) return;
-    setLoading(true);
-    fetch(`/api/trpc/analytics.sentiment?input=${encodeURIComponent(JSON.stringify({ "0": { json: { workspaceId, range } } }))}`, { credentials: "include" })
-      .then(r => r.json())
-      .then(json => {
-        const payload = json?.result?.data?.json ?? json?.result?.data ?? json;
-        setData(payload && typeof payload === "object" && "positive" in payload ? payload : null);
-      })
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [workspaceId, range]);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["analytics.sentiment", workspaceId, range],
+    queryFn: () => analyticsApi.sentiment({ workspaceId: workspaceId!, range }) as Promise<SentimentData>,
+    enabled: !!workspaceId,
+  });
+
+  const sentiment: SentimentData | null = data && typeof data === "object" && "positive" in data ? data : null;
 
   return (
     <div className="analytics-page">
@@ -47,9 +42,9 @@ export default function Sentiment() {
       </header>
 
       <div className="analytics-content">
-        {loading ? (
+        {isLoading ? (
           <div className="analytics-empty"><p>Loading sentiment data...</p></div>
-        ) : !data ? (
+        ) : error || !sentiment ? (
           <div className="analytics-empty">
             <SmilePlus size={40} />
             <h3>No sentiment data yet</h3>
@@ -60,27 +55,27 @@ export default function Sentiment() {
             <div className="sentiment-cards">
               <div className="sentiment-card sentiment-card--positive">
                 <SmilePlus size={24} />
-                <div><span className="sentiment-value">{data.positive}%</span><span className="sentiment-label">Positive</span></div>
+                <div><span className="sentiment-value">{sentiment.positive}%</span><span className="sentiment-label">Positive</span></div>
               </div>
               <div className="sentiment-card sentiment-card--neutral">
                 <Meh size={24} />
-                <div><span className="sentiment-value">{data.neutral}%</span><span className="sentiment-label">Neutral</span></div>
+                <div><span className="sentiment-value">{sentiment.neutral}%</span><span className="sentiment-label">Neutral</span></div>
               </div>
               <div className="sentiment-card sentiment-card--negative">
                 <Frown size={24} />
-                <div><span className="sentiment-value">{data.negative}%</span><span className="sentiment-label">Negative</span></div>
+                <div><span className="sentiment-value">{sentiment.negative}%</span><span className="sentiment-label">Negative</span></div>
               </div>
             </div>
             <div className="sentiment-bar">
-              <div className="sentiment-segment sentiment-segment--positive" style={{ width: `${data.positive}%` }} />
-              <div className="sentiment-segment sentiment-segment--neutral" style={{ width: `${data.neutral}%` }} />
-              <div className="sentiment-segment sentiment-segment--negative" style={{ width: `${data.negative}%` }} />
+              <div className="sentiment-segment sentiment-segment--positive" style={{ width: `${sentiment.positive}%` }} />
+              <div className="sentiment-segment sentiment-segment--neutral" style={{ width: `${sentiment.neutral}%` }} />
+              <div className="sentiment-segment sentiment-segment--negative" style={{ width: `${sentiment.negative}%` }} />
             </div>
             <div className="sentiment-summary">
-              <p>Based on <strong>{data.total}</strong> messages</p>
-              {data.trend === "up" && <span className="sentiment-trend sentiment-trend--up"><TrendingUp size={14} /> Improving</span>}
-              {data.trend === "down" && <span className="sentiment-trend sentiment-trend--down"><TrendingDown size={14} /> Declining</span>}
-              {data.trend === "stable" && <span className="sentiment-trend sentiment-trend--stable"><Minus size={14} /> Stable</span>}
+              <p>Based on <strong>{sentiment.total}</strong> messages</p>
+              {sentiment.trend === "up" && <span className="sentiment-trend sentiment-trend--up"><TrendingUp size={14} /> Improving</span>}
+              {sentiment.trend === "down" && <span className="sentiment-trend sentiment-trend--down"><TrendingDown size={14} /> Declining</span>}
+              {sentiment.trend === "stable" && <span className="sentiment-trend sentiment-trend--stable"><Minus size={14} /> Stable</span>}
             </div>
           </>
         )}

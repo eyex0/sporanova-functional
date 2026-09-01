@@ -51,7 +51,12 @@ export default function Conversations() {
     enabled: !!selectedId,
   });
 
-  const ask = useMutation({ mutationFn: intelligenceApi.ask });
+  const ask = useMutation({
+    mutationFn: intelligenceApi.ask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations.messages", selectedId] });
+    },
+  });
 
   const filteredConversations = conversations?.filter(
     (conv: any) =>

@@ -61,25 +61,30 @@ export default function Settings() {
 
   useEffect(() => {
     if (!savedPrefs) return;
-    if (savedPrefs.name) setProfile(p => ({ ...p, name: savedPrefs.name ?? "", jobTitle: savedPrefs.jobTitle ?? "" }));
-    setNotifications({
-      emailNotifications: savedPrefs.emailNotifications ?? true,
-      slackNotifications: savedPrefs.slackNotifications ?? false,
-      weeklyDigest: savedPrefs.weeklyDigest ?? true,
-      agentNotifications: savedPrefs.agentNotifications ?? true,
-      anomalyNotifications: savedPrefs.anomalyNotifications ?? true,
-      reportNotifications: savedPrefs.reportNotifications ?? false,
-    });
-    setPreferences({
-      responseTone: savedPrefs.responseTone ?? "professional",
-      contextWindow: savedPrefs.extendedContextWindow ?? true,
-      citeSources: savedPrefs.citeSources ?? true,
-      proactiveInsights: savedPrefs.proactiveInsights ?? false,
-    });
+    if (savedPrefs.profile) {
+      setProfile(p => ({ ...p, name: savedPrefs.profile.name ?? p.name, email: savedPrefs.profile.email ?? p.email, jobTitle: savedPrefs.profile.jobTitle ?? "" }));
+    }
+    const pref = savedPrefs.preferences;
+    if (pref) {
+      setNotifications({
+        emailNotifications: pref.emailNotifications ?? true,
+        slackNotifications: pref.slackNotifications ?? false,
+        weeklyDigest: pref.weeklyDigest ?? true,
+        agentNotifications: pref.agentNotifications ?? true,
+        anomalyNotifications: pref.anomalyNotifications ?? true,
+        reportNotifications: pref.reportNotifications ?? false,
+      });
+      setPreferences({
+        responseTone: pref.responseTone ?? "professional",
+        contextWindow: pref.extendedContextWindow ?? true,
+        citeSources: pref.citeSources ?? true,
+        proactiveInsights: pref.proactiveInsights ?? false,
+      });
+    }
   }, [savedPrefs]);
 
   const updateProfile = useMutation({
-    mutationFn: preferencesApi.updateProfile,
+    mutationFn: (input: { name: string; jobTitle?: string }) => preferencesApi.updateProfile(input),
     onSuccess: () => {
       toast.success("Profile updated");
       queryClient.invalidateQueries({ queryKey: ["preferences.get"] });
@@ -89,7 +94,7 @@ export default function Settings() {
   });
 
   const updatePrefs = useMutation({
-    mutationFn: preferencesApi.update,
+    mutationFn: (input: Record<string, unknown>) => preferencesApi.update({ workspaceId: workspaceId!, ...input } as any),
     onSuccess: () => {
       toast.success("Preferences saved");
       queryClient.invalidateQueries({ queryKey: ["preferences.get"] });
@@ -114,9 +119,8 @@ export default function Settings() {
 
   const handleSaveProfile = () => {
     updateProfile.mutate({
-      workspaceId,
       name: profile.name,
-      jobTitle: profile.jobTitle,
+      jobTitle: profile.jobTitle || null,
     });
   };
 

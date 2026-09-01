@@ -17,7 +17,7 @@ type SourceType = "API" | "Database" | "File" | "Webhook";
 type SourceStatus = "connected" | "syncing" | "error" | "disconnected";
 
 interface DataSource {
-  id: string;
+  id: number;
   name: string;
   type: SourceType;
   status: SourceStatus;
@@ -44,7 +44,7 @@ export default function DataSources() {
 
   const { data: sources, isLoading } = useQuery({
     queryKey: ["dataSources.list", workspaceId],
-    queryFn: () => dataSourcesApi.list({ workspaceId: workspaceId! }),
+    queryFn: () => dataSourcesApi.list({ workspaceId: workspaceId! }) as Promise<DataSource[]>,
     enabled: !!workspaceId,
   });
 
@@ -83,7 +83,7 @@ export default function DataSources() {
     );
   }
 
-  const sourceList: DataSource[] = (sources as DataSource[] | undefined) ?? [];
+  const sourceList: DataSource[] = Array.isArray(sources) ? (sources as DataSource[]) : [];
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,7 +158,7 @@ export default function DataSources() {
                   className="btn-sync"
                   disabled={syncSource.isPending || source.status === "syncing"}
                   onClick={() =>
-                    syncSource.mutate({ workspaceId, sourceId: source.id })
+                    syncSource.mutate({ workspaceId, dataSourceId: source.id })
                   }
                 >
                   <RefreshCw
@@ -172,7 +172,7 @@ export default function DataSources() {
                   onClick={() =>
                     disconnectSource.mutate({
                       workspaceId,
-                      sourceId: source.id,
+                      dataSourceId: source.id,
                     })
                   }
                 >
@@ -184,7 +184,7 @@ export default function DataSources() {
                   onClick={() =>
                     deleteSource.mutate({
                       workspaceId,
-                      sourceId: source.id,
+                      dataSourceId: source.id,
                     })
                   }
                 >

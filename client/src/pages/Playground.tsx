@@ -146,6 +146,29 @@ export default function Playground() {
     }
   };
 
+  const handlePreview = () => {
+    if (!activeAgent) {
+      toast.error("Select an agent first");
+      return;
+    }
+    setTab("overview");
+    const el = document.querySelector(".pg-chat-input") as HTMLInputElement | null;
+    el?.focus();
+    toast.info("Send a message to preview the agent in the right panel.");
+  };
+
+  const handleDeploy = async () => {
+    if (!activeAgent || !workspaceId) return;
+    const nextStatus = activeAgent.status === "active" ? "paused" : "active";
+    try {
+      await agentsApi.setStatus({ workspaceId, agentId: activeAgent.id, status: nextStatus } as any);
+      setActiveAgent({ ...activeAgent, status: nextStatus });
+      toast.success(nextStatus === "active" ? "Agent deployed and live" : "Agent paused");
+    } catch {
+      toast.error("Failed to update agent status");
+    }
+  };
+
   return (
     <div className="pg-layout">
       <div className="pg-header">
@@ -169,10 +192,12 @@ export default function Playground() {
         </div>
 
         <div className="pg-header-right">
-          <button className="pg-icon-btn" title="Preview">
+          <button className="pg-icon-btn" title="Preview" onClick={handlePreview} disabled={!activeAgent}>
             <MonitorPlay size={18} />
           </button>
-          <button className="pg-deploy-btn">Deploy</button>
+          <button className="pg-deploy-btn" onClick={handleDeploy} disabled={!activeAgent}>
+            {activeAgent?.status === "active" ? "Deployed" : "Deploy"}
+          </button>
         </div>
       </div>
 

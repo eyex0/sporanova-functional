@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import Backstage from "./pages/Backstage";
+import Dashboard from "./pages/Dashboard";
 import Playground from "./pages/Playground";
 import Channels from "./pages/Channels";
 import Integrations from "./pages/Integrations";
@@ -38,6 +39,7 @@ function Router() {
       <Route path={"/auth/signup"}>{() => <AuthFlow mode="signup" />}</Route>
       <Route path={"/auth/signin"}>{() => <AuthFlow mode="signin" />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={() => <DashboardLayout><Backstage /></DashboardLayout>} />}</Route>
+      <Route path="/dashboard/overview">{() => <ProtectedRoute component={() => <DashboardLayout><Dashboard /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/playground">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/conversations">{() => <ProtectedRoute component={() => <DashboardLayout><Conversations /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/leads">{() => <ProtectedRoute component={() => <DashboardLayout><Leads /></DashboardLayout>} />}</Route>

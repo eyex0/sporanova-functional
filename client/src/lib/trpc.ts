@@ -128,6 +128,9 @@ export const memoryApi = {
 export const analyticsApi = {
   overview: (input: Record<string, unknown>) => trpcFetch("analytics.overview", input),
   segments: (input: Record<string, unknown>) => trpcFetch("analytics.segments", input),
+  topics: (input: Record<string, unknown>) => trpcFetch("analytics.topics", input),
+  sentiment: (input: Record<string, unknown>) => trpcFetch("analytics.sentiment", input),
+  trends: (input: Record<string, unknown>) => trpcFetch("analytics.trends", input),
 };
 
 /* ===== Workflows ===== */

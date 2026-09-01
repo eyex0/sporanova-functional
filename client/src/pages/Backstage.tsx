@@ -22,6 +22,11 @@ export default function Backstage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<Agent | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["agents.list", workspaceId],
     queryFn: async () => {
@@ -46,19 +51,38 @@ export default function Backstage() {
     onSuccess: (agent: any) => {
       queryClient.invalidateQueries({ queryKey: ["agents.list"] });
       toast.success("Agent created");
+      setShowCreate(false);
+      setNewName("");
+      setNewDescription("");
       if (agent?.id) setLocation(`/dashboard/playground?agentId=${agent.id}`);
     },
     onError: () => toast.error("Failed to create agent"),
   });
 
+  const deleteAgent = useMutation({
+    mutationFn: agentsApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agents.list"] });
+      toast.success("Agent deleted");
+      setConfirmDelete(null);
+    },
+    onError: () => toast.error("Failed to delete agent"),
+  });
+
   const handleNewAgent = () => {
-    const name = prompt("Agent name");
-    if (!name) return;
+    setShowCreate(true);
+    setNewName("");
+    setNewDescription("");
+  };
+
+  const handleSubmitCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
     createAgent.mutate({
       workspaceId,
-      name,
+      name: newName.trim(),
       purpose: "You are a helpful AI assistant for customer support.",
-      description: "General purpose support agent",
+      description: newDescription.trim() || "General purpose support agent",
       status: "idle",
     });
   };
@@ -67,6 +91,11 @@ export default function Backstage() {
     e.stopPropagation();
     const next = agent.status === "active" ? "paused" : "active";
     setStatus.mutate({ workspaceId, agentId: agent.id, status: next });
+  };
+
+  const handleConfirmDelete = (agent: Agent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmDelete(agent);
   };
 
   const agents = data ?? [];
@@ -132,7 +161,7 @@ export default function Backstage() {
                   >
                     {agent.status === "active" ? <Pause size={14} /> : <Play size={14} />}
                   </button>
-                  <button className="agent-card-action" onClick={(e) => e.stopPropagation()} aria-label="More options">
+                  <button className="agent-card-action" onClick={(e) => handleConfirmDelete(agent, e)} aria-label="Delete agent" title="Delete agent">
                     <MoreHorizontal size={14} />
                   </button>
                 </div>
@@ -141,6 +170,81 @@ export default function Backstage() {
           ))
         )}
       </div>
+
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => !createAgent.isPending && setShowCreate(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>New AI agent</h2>
+            <p className="modal-subtitle">You can refine the instructions after creating the agent.</p>
+            <form onSubmit={handleSubmitCreate}>
+              <label>
+                Name
+                <input
+                  required
+                  autoFocus
+                  minLength={2}
+                  maxLength={160}
+                  placeholder="e.g. Support agent"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </label>
+              <label>
+                Description <span className="modal-optional">(optional)</span>
+                <textarea
+                  maxLength={400}
+                  placeholder="What does this agent do?"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                />
+              </label>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowCreate(false)}
+                  disabled={createAgent.isPending}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={createAgent.isPending}>
+                  {createAgent.isPending ? "Creating..." : "Create agent"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={() => !deleteAgent.isPending && setConfirmDelete(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Delete agent?</h2>
+            <p>
+              This will permanently delete <strong>{confirmDelete.name}</strong>. Any active channels pointing to it
+              will stop responding. This action cannot be undone.
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => setConfirmDelete(null)}
+                disabled={deleteAgent.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => deleteAgent.mutate({ workspaceId, agentId: confirmDelete.id })}
+                disabled={deleteAgent.isPending}
+              >
+                {deleteAgent.isPending ? "Deleting..." : "Delete agent"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
