@@ -16,7 +16,6 @@ import Contacts from "./pages/Contacts";
 import Outbound from "./pages/Outbound";
 import Helpdesk from "./pages/Helpdesk";
 import GettingStarted from "./pages/GettingStarted";
-import Agents from "./pages/Agents";
 import Conversations from "./pages/Conversations";
 import Workflows from "./pages/Workflows";
 import Analytics from "./pages/Analytics";
@@ -26,7 +25,6 @@ import DataSources from "./pages/DataSources";
 import Settings from "./pages/Settings";
 import ReferenceSolutionPage from "./pages/ReferenceSolutionPage";
 import AuthFlow from "./pages/AuthFlow";
-import Onboarding from "./pages/Onboarding";
 import RouteTransition from "./components/RouteTransition";
 import Home from "./pages/Home";
 import CustomerStoryDetail from "./pages/CustomerStoryDetail";
@@ -39,13 +37,8 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/auth/signup"}>{() => <AuthFlow mode="signup" />}</Route>
       <Route path={"/auth/signin"}>{() => <AuthFlow mode="signin" />}</Route>
-      <Route path="/onboarding">{() => <ProtectedRoute component={Onboarding} />}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute component={() => <DashboardLayout><Backstage /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/playground">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
-      <Route path="/dashboard/playground/instructions">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
-      <Route path="/dashboard/playground/procedures">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
-      <Route path="/dashboard/playground/suggestions">{() => <ProtectedRoute component={() => <DashboardLayout><Playground /></DashboardLayout>} />}</Route>
-      <Route path="/dashboard/agents">{() => <ProtectedRoute component={() => <DashboardLayout><Agents /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/conversations">{() => <ProtectedRoute component={() => <DashboardLayout><Conversations /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/leads">{() => <ProtectedRoute component={() => <DashboardLayout><Leads /></DashboardLayout>} />}</Route>
       <Route path="/dashboard/collected-data">{() => <ProtectedRoute component={() => <DashboardLayout><DataSources /></DashboardLayout>} />}</Route>

@@ -45,12 +45,10 @@ const mainNavItems: NavItem[] = [
     icon: Hammer,
     hasSubmenu: true,
     subItems: [
-      { label: "Instructions", path: "/dashboard/playground/instructions" },
       { label: "Data sources", path: "/dashboard/data-sources" },
       { label: "Actions", path: "/dashboard/integrations" },
       { label: "Widgets", path: "/dashboard/channels" },
-      { label: "Procedures", path: "/dashboard/playground/procedures" },
-      { label: "Suggestions", path: "/dashboard/playground/suggestions" },
+      { label: "Procedures", path: "/dashboard/workflows" },
     ],
   },
   {
