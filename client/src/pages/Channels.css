@@ -1,215 +1,327 @@
-.channels {
+.channels-page {
   padding: 32px;
-  max-width: 1280px;
+  max-width: 1200px;
   margin: 0 auto;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #0A0A0A;
 }
 
 .channels-header {
-  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
 }
 
 .channels-header h1 {
   font-size: 24px;
   font-weight: 700;
+  color: #1A1F3C;
   margin: 0;
   letter-spacing: -0.02em;
 }
 
-.channels-search-row {
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.channels-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #FFFFFF;
-  border: 1px solid #E5E5E5;
-  border-radius: 8px;
-  padding: 10px 14px;
-  width: 360px;
-  max-width: 100%;
-}
-
-.channels-search input {
-  flex: 1;
-  border: none;
-  outline: none;
+.channels-header p {
   font-size: 14px;
-  font-family: inherit;
-  color: #0A0A0A;
-  background: transparent;
+  color: #6B7280;
+  margin: 4px 0 0;
 }
 
 .channels-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
 }
 
-.channels-card {
-  background: #FFFFFF;
-  border: 1px solid #E5E5E5;
+/* Channel Card */
+.channel-card {
+  background: #fff;
+  border: 1px solid #E8E6E1;
   border-radius: 12px;
-  overflow: hidden;
+  padding: 20px;
+  transition: box-shadow 0.2s, border-color 0.2s;
   display: flex;
   flex-direction: column;
 }
 
-.channels-card-preview {
-  height: 180px;
+.channel-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.channel-card.active {
+  border-color: #059669;
+}
+
+.channel-card.disabled {
+  opacity: 0.6;
+}
+
+.channel-card.unavailable {
+  opacity: 0.5;
+}
+
+.channel-card-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
-.channels-card-preview::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(135deg, transparent 25%, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.05) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.05) 75%);
-  background-size: 40px 40px;
-}
-
-.channels-card-preview-inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-.channels-card-preview-widget {
-  background: #FFFFFF;
-  border-radius: 12px;
-  width: 200px;
-  height: 140px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.channels-card-preview-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.channels-card-preview-avatar {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #F0F0F0;
+.channel-icon {
+  width: 40px;
+  height: 40px;
+  background: #F9FAFB;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.channels-card-preview-bars {
-  flex: 1;
+.channel-title {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
-.channels-card-preview-bar {
-  height: 6px;
-  background: #E5E5E5;
-  border-radius: 3px;
-}
-
-.channels-card-preview-content {
-  flex: 1;
-  background: #F8F8F8;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-}
-
-.channels-card-preview-content p {
-  font-size: 9px;
-  color: #9CA3AF;
+.channel-title h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1A1F3C;
   margin: 0;
 }
 
-.channels-card-preview-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 4px;
-  font-size: 10px;
+.channel-status {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
 }
 
-.channels-card-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.channels-card-body h3 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 6px;
-  letter-spacing: -0.01em;
-}
-
-.channels-card-body p {
+.channel-desc {
   font-size: 13px;
   color: #6B7280;
+  margin: 0 0 12px;
   line-height: 1.5;
-  margin: 0 0 16px;
-  flex: 1;
 }
 
-.channels-card-actions {
+/* Webhook URL */
+.channel-webhook {
+  margin-bottom: 12px;
+}
+
+.channel-webhook label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.webhook-url {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 6px;
+  background: #F3F4F6;
+  border-radius: 6px;
+  padding: 6px 10px;
 }
 
-.channels-card-icon-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #E5E5E5;
-  background: #FFFFFF;
-  border-radius: 8px;
+.webhook-url code {
+  font-size: 11px;
+  color: #374151;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.webhook-url button {
+  background: none;
+  border: none;
   cursor: pointer;
+  color: #6366F1;
+  padding: 2px;
+}
+
+/* Footer */
+.channel-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.channel-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.ch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #E8E6E1;
+  background: #fff;
+  color: #1A1F3C;
+  transition: all 0.15s;
+}
+
+.ch-btn:hover {
+  background: #F9FAFB;
+}
+
+.ch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ch-btn-send {
+  color: #6366F1;
+  border-color: #C7D2FE;
+  background: #EEF2FF;
+}
+
+.ch-btn-configure {
+  color: #374151;
+}
+
+.ch-btn-enable {
+  color: #059669;
+  border-color: #A7F3D0;
+  background: #ECFDF5;
+}
+
+.ch-btn-disable {
+  color: #DC2626;
+  border-color: #FECACA;
+  background: #FEF2F2;
+}
+
+.ch-btn-copy {
+  color: #6366F1;
+  border: none;
+  background: none;
+}
+
+.ch-btn-cancel {
+  color: #6B7280;
+}
+
+.ch-btn-save {
+  color: #fff;
+  background: #6366F1;
+  border-color: #6366F1;
+}
+
+.ch-btn-save:hover {
+  background: #4F46E5;
+}
+
+.ch-unavailable {
+  font-size: 11px;
+  color: #9CA3AF;
+}
+
+/* Modal */
+.ch-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0A0A0A;
+  z-index: 1000;
 }
 
-.channels-card-icon-btn:hover {
-  border-color: #0A0A0A;
+.ch-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
-.channels-card-manage-btn {
-  flex: 1;
-  background: #FFFFFF;
-  color: #0A0A0A;
-  border: 1px solid #E5E5E5;
-  border-radius: 8px;
-  padding: 9px 12px;
-  font-size: 13px;
+.ch-modal h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1A1F3C;
+  margin: 0 0 24px;
+}
+
+.ch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ch-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ch-form-row label {
+  font-size: 12px;
   font-weight: 500;
-  cursor: pointer;
+  color: #374151;
+}
+
+.ch-form-row input,
+.ch-form-row select,
+.ch-form-row textarea {
+  padding: 8px 10px;
+  border: 1px solid #E8E6E1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1A1F3C;
+  outline: none;
   font-family: inherit;
 }
 
-.channels-card-manage-btn:hover {
-  border-color: #0A0A0A;
+.ch-form-row input:focus,
+.ch-form-row select:focus,
+.ch-form-row textarea:focus {
+  border-color: #6366F1;
+}
+
+.ch-form-section {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366F1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 8px;
+  border-top: 1px solid #F3F4F6;
+}
+
+.ch-embed {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.ch-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #F3F4F6;
+}
+
+.channels-empty {
+  text-align: center;
+  padding: 48px;
+  color: #9CA3AF;
+  font-size: 14px;
 }

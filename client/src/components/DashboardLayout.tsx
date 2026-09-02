@@ -20,6 +20,7 @@ import {
   Send,
   Inbox,
   Settings,
+  Key,
   ExternalLink,
   LogOut,
   ChevronDown,
@@ -28,6 +29,7 @@ import {
   Zap,
   X,
 } from "lucide-react";
+import Logo from "@/components/Logo";
 import "./DashboardLayout.css";
 import { toast } from "sonner";
 
@@ -73,6 +75,7 @@ const mainNavItems: NavItem[] = [
       { label: "Chats", path: "/dashboard/analytics" },
       { label: "Topics", path: "/dashboard/analytics/topics" },
       { label: "Sentiment", path: "/dashboard/analytics/sentiment" },
+      { label: "Observability", path: "/dashboard/observability" },
     ],
   },
   { label: "Contacts", path: "/dashboard/contacts", icon: Users },
@@ -81,6 +84,7 @@ const mainNavItems: NavItem[] = [
   { label: "Outbound", path: "/dashboard/outbound", icon: Send },
   { label: "Helpdesk inbox", path: "/dashboard/helpdesk", icon: Inbox },
   { label: "Settings", path: "/dashboard/settings", icon: Settings },
+  { label: "API Keys", path: "/dashboard/api-keys", icon: Key },
   { label: "Team", path: "/dashboard/team", icon: Users },
 ];
 
@@ -188,7 +192,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="db-sidebar-header">
             {!collapsed && (
               <div className="db-sidebar-logo">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="4" fill="#171717"/><path d="M7 8h10v2H7zm0 3h7v2H7zm0 3h10v2H7z" fill="#fff"/></svg>
+                <Logo size={22} />
                 <span className="db-logo-text">SOPRANOVA</span>
               </div>
             )}

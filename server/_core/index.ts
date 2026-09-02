@@ -9,7 +9,7 @@ import { createServer } from "http";
 import { appRouter } from "../routers";
 import { registerOAuthRoutes } from "../oauth";
 import { createContext } from "./context";
-import { ENV } from "./env";
+import { ENV, validateEnv } from "./env";
 import { serveStatic, setupVite, hasDistPublic } from "./vite";
 
 const ALLOWED_ORIGINS = (process.env.APP_ORIGIN ?? "http://localhost:3000")
@@ -25,7 +25,17 @@ const isOriginAllowed = (origin: string | undefined): boolean => {
 
 const keyFor = (scope: string) => (req: express.Request) => `${ipKeyGenerator(req.ip ?? "unknown")}:${scope}`;
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 async function startServer() {
+  validateEnv();
   if (ENV.isProduction && !ENV.sessionSecret) throw new Error("SESSION_SECRET must be configured in production");
   const app = express();
   const server = createServer(app);
@@ -83,6 +93,42 @@ async function startServer() {
   });
 
   registerOAuthRoutes(app);
+
+  // Register channel adapters
+  const { registerAllChannelAdapters } = await import("./channelAdapters");
+  registerAllChannelAdapters();
+
+  // Channel webhook endpoints
+  const channelWebhookLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: keyFor("webhook"),
+  });
+
+  app.get("/api/webhooks/:channelType/:workspaceId", channelWebhookLimiter, async (req, res) => {
+    const { channelType, workspaceId } = req.params;
+    const { handleChannelWebhook } = await import("./channelAdapter");
+    const result = await handleChannelWebhook(
+      channelType as any,
+      Number(workspaceId),
+      req.query as Record<string, string>,
+    );
+    res.status(result.status).send(result.body);
+  });
+
+  app.post("/api/webhooks/:channelType/:workspaceId", channelWebhookLimiter, async (req, res) => {
+    const { channelType, workspaceId } = req.params;
+    const { handleChannelWebhook } = await import("./channelAdapter");
+    const result = await handleChannelWebhook(
+      channelType as any,
+      Number(workspaceId),
+      req.body,
+    );
+    res.status(result.status).send(result.body);
+  });
+
   app.get("/manus-storage/:key(*)", async (req, res) => {
     const key = String(req.params.key ?? "").replace(/^\/+/, "");
     const forgeBaseUrl = (process.env.BUILT_IN_FORGE_API_URL ?? "").replace(/\/+$/, "");
@@ -123,6 +169,253 @@ async function startServer() {
   app.use("/api/trpc/intelligence.ask", intelligenceLimiter);
   app.use("/api/trpc", generalLimiter);
 
+  app.post("/api/agents/chat/stream", express.json({ limit: "1mb" }), async (req, res) => {
+    try {
+      const { workspaceId, agentId, conversationId, message } = req.body ?? {};
+      if (!workspaceId || !agentId || !conversationId || !message) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const sessionId = req.cookies?.sopranova_session;
+      if (!sessionId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { validateSession } = await import("../db");
+      const session = await validateSession(sessionId);
+      if (!session) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const { requireDb } = await import("../db");
+      const { agents, conversations, messages: messagesTable, messageSources } = await import("../../drizzle/schema");
+      const { and, eq, isNull, desc } = await import("drizzle-orm");
+      const db = await requireDb();
+
+      const agent = (await db.select().from(agents).where(and(eq(agents.id, agentId), eq(agents.workspaceId, workspaceId), isNull(agents.deletedAt))).limit(1))[0];
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+      const conversation = (await db.select().from(conversations).where(and(eq(conversations.id, conversationId), eq(conversations.workspaceId, workspaceId), isNull(conversations.deletedAt))).limit(1))[0];
+      if (!conversation) return res.status(404).json({ error: "Conversation not found" });
+
+      await db.insert(messagesTable).values({ workspaceId, conversationId, authorUserId: session.user.id, role: "user", kind: "question", content: message });
+
+      const { createRagContextBuilder } = await import("./contextBuilder");
+      const { modelGatewayInvokeStream } = await import("./modelGateway");
+      const { loadConversationHistory } = await import("./contextBuilder");
+
+      const contextBuilder = await createRagContextBuilder();
+      const history = await loadConversationHistory(workspaceId, conversationId);
+
+      const builtContext = await contextBuilder.build({
+        workspaceId, agentId, conversationId, userMessage: message, agent, history,
+      });
+
+      const { stream, model, provider } = await modelGatewayInvokeStream({
+        messages: builtContext.messages,
+        maxTokens: 1400,
+      });
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+
+      let fullContent = "";
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") {
+                res.write(`data: [DONE]\n\n`);
+                continue;
+              }
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (delta) {
+                  fullContent += delta;
+                  res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
+                }
+              } catch {
+                // Skip malformed JSON
+              }
+            }
+          }
+        }
+      } catch (streamError) {
+        console.error("Stream error:", streamError);
+      }
+
+      await db.insert(messagesTable).values({ workspaceId, conversationId, role: "assistant", kind: "insight", content: fullContent, metadata: { model, provider, executionId: crypto.randomUUID() } });
+      await db.update(conversations).set({ lastMessageAt: new Date() }).where(eq(conversations.id, conversationId));
+
+      res.end();
+    } catch (error) {
+      console.error("Stream endpoint error:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Stream failed" });
+      } else {
+        res.end();
+      }
+    }
+  });
+
+  // ─── Help Page Route ───
+  app.get("/help/:workspaceId", async (req, res) => {
+    const workspaceId = Number(req.params.workspaceId);
+    if (!workspaceId) return res.status(404).send("Not found");
+
+    try {
+      const db = await requireDb();
+      const { channels: channelsTable, workspaces } = await import("../../drizzle/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      const channel = (await db
+        .select()
+        .from(channelsTable)
+        .where(and(eq(channelsTable.workspaceId, workspaceId), eq(channelsTable.type, "help_page"), eq(channelsTable.status, "active")))
+        .limit(1))[0];
+
+      const workspace = (await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0];
+
+      const config = (channel?.configuration ?? {}) as Record<string, unknown>;
+      const pageTitle = escapeHtml((config.pageTitle as string) ?? (workspace?.name ? `${workspace.name} Help Center` : "Help Center"));
+      const description = escapeHtml((config.description as string) ?? "How can we help you?");
+      const theme = (config.theme as string) === "dark" ? "dark" : "light";
+
+      res.setHeader("Content-Type", "text/html");
+      res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${pageTitle}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: ${theme === "dark" ? "#111" : "#fdfcfb"}; color: ${theme === "dark" ? "#fff" : "#111"}; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
+    .help-header { text-align: center; max-width: 600px; margin-bottom: 40px; }
+    .help-header h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
+    .help-header p { font-size: 16px; color: ${theme === "dark" ? "#aaa" : "#6b7280"}; line-height: 1.6; }
+    .help-chat { width: 100%; max-width: 600px; flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="help-header">
+    <h1>${pageTitle}</h1>
+    <p>${description}</p>
+  </div>
+  <div class="help-chat"></div>
+  <script src="${req.protocol}://${req.get("host")}/embed.js" data-workspace="${workspaceId}" data-channel="widget"></script>
+</body>
+</html>`);
+    } catch (err) {
+      console.error("Help page error:", err);
+      res.status(500).send("Internal error");
+    }
+  });
+
+  // ─── API Channel Endpoint ───
+  app.post("/api/v1/agent/:agentId/chat", express.json({ limit: "1mb" }), async (req, res) => {
+    try {
+      const agentId = Number(req.params.agentId);
+      const { message, conversationId } = req.body ?? {};
+      if (!agentId || !message) {
+        return res.status(400).json({ error: "Missing agentId or message" });
+      }
+
+      // Authenticate via API key
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Missing or invalid Authorization header. Use: Bearer sk_live_..." });
+      }
+      const apiKey = authHeader.slice(7);
+
+      const { validateApiKey } = await import("./apiKeys");
+      const keyResult = await validateApiKey(apiKey);
+      if (!keyResult) {
+        return res.status(401).json({ error: "Invalid API key" });
+      }
+
+      const workspaceId = keyResult.workspaceId;
+
+      const db = await requireDb();
+      const { agents: agentsTable, conversations: convTable, messages: msgTable } = await import("../../drizzle/schema");
+      const { and, eq, isNull } = await import("drizzle-orm");
+
+      // Verify agent exists and belongs to this workspace
+      const agent = (await db
+        .select()
+        .from(agentsTable)
+        .where(and(eq(agentsTable.id, agentId), eq(agentsTable.workspaceId, workspaceId), isNull(agentsTable.deletedAt)))
+        .limit(1))[0];
+      if (!agent) return res.status(404).json({ error: "Agent not found in this workspace" });
+
+      // Find or create conversation
+      let convId = conversationId;
+      if (!convId) {
+        const [conv] = await db.insert(convTable).values({
+          workspaceId,
+          title: `api:agent-${agentId}`,
+          createdById: keyResult.userId ?? 1,
+        }).returning({ id: convTable.id });
+        convId = conv.id;
+      }
+
+      // Save user message
+      await db.insert(msgTable).values({
+        workspaceId,
+        conversationId: convId,
+        role: "user",
+        kind: "question",
+        content: message,
+        metadata: { source: "api", agentId },
+      });
+
+      // Run agent
+      const { AgentRuntime } = await import("./agentRuntime");
+      const runtime = new AgentRuntime({ maxTokens: 2048 });
+      const result = await runtime.execute({
+        workspaceId,
+        agentId,
+        conversationId: convId,
+        userId: keyResult.userId ?? 1,
+        message,
+      });
+
+      // Save assistant response
+      await db.insert(msgTable).values({
+        workspaceId,
+        conversationId: convId,
+        role: "assistant",
+        kind: "answer",
+        content: result.response,
+        metadata: { model: result.model, provider: result.provider, latencyMs: result.latencyMs, source: "api" },
+      });
+
+      await db.update(convTable).set({ lastMessageAt: new Date() }).where(eq(convTable.id, convId));
+
+      res.json({
+        reply: result.response,
+        conversationId: convId,
+        model: result.model,
+        latencyMs: result.latencyMs,
+      });
+    } catch (err) {
+      console.error("API agent chat error:", err);
+      res.status(500).json({ error: "Internal error" });
+    }
+  });
+
   app.use("/api/trpc", createExpressMiddleware({ router: appRouter, createContext }));
   if (hasDistPublic()) {
     serveStatic(app);
@@ -135,7 +428,9 @@ async function startServer() {
   const port = Number(process.env.PORT ?? 3000);
   server.listen(port, process.env.HOST ?? "0.0.0.0", () => {
     console.info(`SOPRANOVA API listening on http://localhost:${port}`);
-    if (ENV.isProduction || process.env.ENABLE_WORKER === "1") {
+    // Only spawn worker if not running as separate service (Render sets WORKER_ID)
+    const isWorkerSeparateService = !!process.env.WORKER_ID;
+    if (!isWorkerSeparateService && (ENV.isProduction || process.env.ENABLE_WORKER === "1")) {
       const workerPath = path.resolve(import.meta.dirname, "../../dist/worker.js");
       const worker = spawn(process.execPath, [workerPath], {
         stdio: "inherit",
@@ -148,6 +443,15 @@ async function startServer() {
     }
   });
 }
+
+// Global error handlers
+process.on("unhandledRejection", (reason) => {
+  console.error(JSON.stringify({ event: "unhandled_rejection", reason: reason instanceof Error ? reason.message : String(reason) }));
+});
+process.on("uncaughtException", (error) => {
+  console.error(JSON.stringify({ event: "uncaught_exception", error: error.message, stack: error.stack }));
+  process.exit(1);
+});
 
 startServer().catch(error => {
   console.error("SOPRANOVA server failed to start", error);

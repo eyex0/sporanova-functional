@@ -1,9 +1,10 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { campaigns } from "../../drizzle/schema";
+import { campaigns, contacts } from "../../drizzle/schema";
 import { workspaceManagerProcedure, workspaceMemberProcedure, workspaceProcedure } from "../authz";
-import { requireDb } from "../db";
+import { requireDb, writeAuditLog } from "../db";
 import { router } from "../_core/trpc";
+import { sendEmail } from "../email";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
 
@@ -91,8 +92,69 @@ export const outboundRouter = router({
 
   sendCampaign: workspaceMemberProcedure.input(idInput).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
-    const [row] = await db.update(campaigns).set({ status: "sending", updatedAt: new Date() }).where(and(eq(campaigns.workspaceId, ctx.workspaceId), eq(campaigns.id, input.campaignId), isNull(campaigns.deletedAt))).returning();
-    return row ?? null;
+    const [campaign] = await db
+      .select()
+      .from(campaigns)
+      .where(and(eq(campaigns.workspaceId, ctx.workspaceId), eq(campaigns.id, input.campaignId), isNull(campaigns.deletedAt)))
+      .limit(1);
+
+    if (!campaign) throw new Error("Campaign not found");
+    if (campaign.status !== "draft" && campaign.status !== "scheduled") {
+      throw new Error(`Cannot send campaign in "${campaign.status}" status`);
+    }
+
+    // Set to sending
+    await db.update(campaigns).set({ status: "sending", updatedAt: new Date() }).where(eq(campaigns.id, input.campaignId));
+
+    // Get active contacts with emails
+    const recipients = await db
+      .select({ id: contacts.id, email: contacts.email, firstName: contacts.firstName, lastName: contacts.lastName })
+      .from(contacts)
+      .where(and(eq(contacts.workspaceId, ctx.workspaceId), eq(contacts.status, "active"), sql`${contacts.email} IS NOT NULL`));
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const contact of recipients) {
+      if (!contact.email) continue;
+      try {
+        const personalizedBody = (campaign.body ?? "")
+          .replace(/\{\{first_name\}\}/gi, contact.firstName ?? "")
+          .replace(/\{\{last_name\}\}/gi, contact.lastName ?? "")
+          .replace(/\{\{email\}\}/gi, contact.email);
+
+        await sendEmail({
+          to: contact.email,
+          subject: campaign.subject ?? campaign.name,
+          text: personalizedBody,
+        });
+        sentCount++;
+      } catch {
+        failedCount++;
+      }
+    }
+
+    // Update campaign with results
+    await db
+      .update(campaigns)
+      .set({
+        status: "sent",
+        sentCount,
+        deliveredCount: sentCount,
+        updatedAt: new Date(),
+      })
+      .where(eq(campaigns.id, input.campaignId));
+
+    await writeAuditLog({
+      workspaceId: ctx.workspaceId,
+      actorUserId: ctx.user.id,
+      action: "campaign.sent",
+      resourceType: "campaign",
+      resourceId: input.campaignId,
+      metadata: { sentCount, failedCount, totalRecipients: recipients.length },
+    });
+
+    return { campaignId: input.campaignId, sentCount, failedCount, totalRecipients: recipients.length };
   }),
 
   deleteCampaign: workspaceManagerProcedure.input(idInput).mutation(async ({ ctx, input }) => {

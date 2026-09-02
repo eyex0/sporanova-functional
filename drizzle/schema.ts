@@ -459,7 +459,22 @@ export const workflows = pgTable(
   ],
 );
 
-export const workflowNodesNodeTypeEnum = pgEnum("workflow_nodes_node_type", ["trigger", "intelligence", "condition", "action"]);
+export const workflowNodesNodeTypeEnum = pgEnum("workflow_nodes_node_type", [
+  // Control flow
+  "start", "end", "condition", "wait", "notification",
+  // Agent & AI
+  "ai", "ai_agent", "ai_router", "ai_classifier", "supervisor", "multi_agent",
+  // Knowledge & Memory
+  "knowledge_search", "rag_retrieval", "memory_read", "memory_write",
+  // Tools
+  "tool", "mcp_tool", "http_request", "function", "code",
+  // Logic
+  "parallel", "merge", "aggregate", "subworkflow",
+  // Human & Approval
+  "human_approval", "escalation", "approval",
+  // Legacy aliases
+  "trigger", "intelligence", "action", "api",
+]);
 
 export const workflowNodes = pgTable(
   "workflow_nodes",
@@ -567,6 +582,29 @@ export const auditLogs = pgTable(
     index("audit_logs_workspace_created_idx").on(table.workspaceId, table.createdAt),
     index("audit_logs_organization_created_idx").on(table.organizationId, table.createdAt),
     index("audit_logs_actor_created_idx").on(table.actorUserId, table.createdAt),
+  ],
+);
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    keyPrefix: varchar("keyPrefix", { length: 16 }).notNull(),
+    keyHash: varchar("keyHash", { length: 128 }).notNull().unique(),
+    scopes: jsonb("scopes").$type<string[]>().default(["*"]).notNull(),
+    rateLimit: integer("rateLimit").default(60).notNull(),
+    expiresAt: timestamp("expiresAt"),
+    lastUsedAt: timestamp("lastUsedAt"),
+    isActive: boolean("isActive").default(true).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("api_keys_workspace_idx").on(table.workspaceId),
+    index("api_keys_hash_idx").on(table.keyHash),
+    index("api_keys_prefix_idx").on(table.keyPrefix),
   ],
 );
 
@@ -703,6 +741,7 @@ export const channels = pgTable(
     type: channelsTypeEnum("type").notNull(),
     name: varchar("name", { length: 160 }).notNull(),
     status: channelsStatusEnum("status").notNull().default("draft"),
+    agentId: integer("agentId").references(() => agents.id, { onDelete: "set null" }),
     configuration: jsonb("configuration").$type<Record<string, unknown>>(),
     embedCode: text("embedCode"),
     createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
@@ -712,6 +751,7 @@ export const channels = pgTable(
   table => [
     uniqueIndex("channels_workspace_type_unique").on(table.workspaceId, table.type),
     index("channels_workspace_status_idx").on(table.workspaceId, table.status),
+    index("channels_workspace_agent_idx").on(table.workspaceId, table.agentId),
   ],
 );
 
@@ -761,3 +801,402 @@ export type Channel = typeof channels.$inferSelect;
 export type InsertChannel = typeof channels.$inferInsert;
 export type Campaign = typeof campaigns.$inferSelect;
 export type InsertCampaign = typeof campaigns.$inferInsert;
+
+export const tools = pgTable(
+  "tools",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 160 }).notNull(),
+    description: text("description").notNull().default(""),
+    parameters: jsonb("parameters").$type<Record<string, unknown>>().notNull().default({}),
+    handlerType: varchar("handlerType", { length: 40 }).notNull().default("builtin"),
+    handlerConfig: jsonb("handlerConfig").$type<Record<string, unknown>>().notNull().default({}),
+    enabled: boolean("enabled").notNull().default(true),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    deletedAt: timestamp("deletedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("tools_workspace_name_unique").on(table.workspaceId, table.name),
+    index("tools_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+export const toolExecutions = pgTable(
+  "tool_executions",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    conversationId: integer("conversationId").references(() => conversations.id, { onDelete: "set null" }),
+    toolName: varchar("toolName", { length: 160 }).notNull(),
+    toolCallId: varchar("toolCallId", { length: 120 }).notNull(),
+    arguments: jsonb("arguments").$type<Record<string, unknown>>().notNull().default({}),
+    result: jsonb("result").$type<unknown>(),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    errorMessage: text("errorMessage"),
+    latencyMs: integer("latencyMs"),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("tool_executions_workspace_agent_idx").on(table.workspaceId, table.agentId),
+    index("tool_executions_conversation_idx").on(table.conversationId),
+  ],
+);
+
+export const agentMemory = pgTable(
+  "agent_memory",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    conversationId: integer("conversationId").references(() => conversations.id, { onDelete: "set null" }),
+    memoryType: varchar("memoryType", { length: 40 }).notNull().default("fact"),
+    content: text("content").notNull(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdById: integer("createdById").notNull().references(() => users.id, { onDelete: "restrict" }),
+    deletedAt: timestamp("deletedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("agent_memory_workspace_agent_idx").on(table.workspaceId, table.agentId),
+    index("agent_memory_type_idx").on(table.memoryType),
+    index("agent_memory_conversation_idx").on(table.conversationId),
+  ],
+);
+
+/* ───────────────────── Workflow Engine ───────────────────── */
+
+export const workflowEdges = pgTable(
+  "workflow_edges",
+  {
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    sourceNodeId: integer("sourceNodeId").notNull().references(() => workflowNodes.id, { onDelete: "cascade" }),
+    targetNodeId: integer("targetNodeId").notNull().references(() => workflowNodes.id, { onDelete: "cascade" }),
+    label: varchar("label", { length: 160 }),
+    conditionExpr: text("conditionExpr"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("workflow_edges_workflow_source_target_unique").on(table.workflowId, table.sourceNodeId, table.targetNodeId),
+    index("workflow_edges_workflow_idx").on(table.workflowId),
+    index("workflow_edges_source_idx").on(table.sourceNodeId),
+    index("workflow_edges_target_idx").on(table.targetNodeId),
+  ],
+);
+
+export const workflowVersions = pgTable(
+  "workflow_versions",
+  {
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("workflow_versions_workflow_version_unique").on(table.workflowId, table.version),
+    index("workflow_versions_workflow_idx").on(table.workflowId),
+  ],
+);
+
+export const nodeExecutions = pgTable(
+  "node_executions",
+  {
+    id: serial("id").primaryKey(),
+    runId: integer("runId").notNull().references(() => workflowRuns.id, { onDelete: "cascade" }),
+    nodeId: integer("nodeId").notNull().references(() => workflowNodes.id, { onDelete: "cascade" }),
+    nodeKey: varchar("nodeKey", { length: 80 }).notNull(),
+    nodeType: varchar("nodeType", { length: 80 }).notNull(),
+    status: varchar("status", { length: 40 }).notNull().default("pending"),
+    input: jsonb("input").$type<Record<string, unknown>>(),
+    output: jsonb("output").$type<Record<string, unknown>>(),
+    error: text("error"),
+    startedAt: timestamp("startedAt"),
+    completedAt: timestamp("completedAt"),
+    durationMs: integer("durationMs"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("node_executions_run_idx").on(table.runId),
+    index("node_executions_node_idx").on(table.nodeId),
+  ],
+);
+
+/* ───────────────────── Observability & Evaluation ───────────────────── */
+
+export const traces = pgTable(
+  "traces",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    conversationId: integer("conversationId").references(() => conversations.id, { onDelete: "set null" }),
+    runId: integer("runId").references(() => agentRuns.id, { onDelete: "set null" }),
+    traceId: varchar("traceId", { length: 128 }).notNull(),
+    name: varchar("name", { length: 255 }),
+    startTime: timestamp("startTime").notNull(),
+    endTime: timestamp("endTime"),
+    durationMs: integer("durationMs"),
+    status: varchar("status", { length: 40 }).notNull().default("ok"),
+    spanCount: integer("spanCount").notNull().default(0),
+    model: varchar("model", { length: 120 }),
+    provider: varchar("provider", { length: 120 }),
+    totalTokens: integer("totalTokens"),
+    promptTokens: integer("promptTokens"),
+    completionTokens: integer("completionTokens"),
+    estimatedCost: numeric("estimatedCost", { precision: 12, scale: 6 }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("traces_traceid_unique").on(table.traceId),
+    index("traces_workspace_agent_idx").on(table.workspaceId, table.agentId),
+    index("traces_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    index("traces_conversation_idx").on(table.conversationId),
+    index("traces_run_idx").on(table.runId),
+  ],
+);
+
+export const traceSpans = pgTable(
+  "trace_spans",
+  {
+    id: serial("id").primaryKey(),
+    traceId: integer("traceId").notNull().references(() => traces.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    spanId: varchar("spanId", { length: 128 }).notNull(),
+    parentSpanId: varchar("parentSpanId", { length: 128 }),
+    name: varchar("name", { length: 255 }).notNull(),
+    kind: varchar("kind", { length: 40 }).notNull().default("internal"),
+    startTime: timestamp("startTime").notNull(),
+    endTime: timestamp("endTime"),
+    durationMs: integer("durationMs"),
+    status: varchar("status", { length: 40 }).notNull().default("ok"),
+    statusCode: integer("statusCode"),
+    statusMessage: text("statusMessage"),
+    input: jsonb("input").$type<Record<string, unknown>>(),
+    output: jsonb("output").$type<Record<string, unknown>>(),
+    attributes: jsonb("attributes").$type<Record<string, unknown>>(),
+    events: jsonb("events").$type<Array<Record<string, unknown>>>(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("trace_spans_trace_idx").on(table.traceId),
+    index("trace_spans_workspace_idx").on(table.workspaceId),
+    index("trace_spans_kind_idx").on(table.kind),
+    index("trace_spans_parent_idx").on(table.parentSpanId),
+  ],
+);
+
+export const evaluationDatasets = pgTable(
+  "evaluation_datasets",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").references(() => agents.id, { onDelete: "set null" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    testCaseCount: integer("testCaseCount").notNull().default(0),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  table => [
+    index("eval_datasets_workspace_idx").on(table.workspaceId),
+    index("eval_datasets_agent_idx").on(table.agentId),
+  ],
+);
+
+export const evaluationTestCases = pgTable(
+  "evaluation_test_cases",
+  {
+    id: serial("id").primaryKey(),
+    datasetId: integer("datasetId").notNull().references(() => evaluationDatasets.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }),
+    input: text("input").notNull(),
+    expectedOutput: text("expectedOutput"),
+    expectedToolCalls: jsonb("expectedToolCalls").$type<Array<Record<string, unknown>>>(),
+    referenceContext: text("referenceContext"),
+    tags: jsonb("tags").$type<string[]>().default([]),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("eval_cases_dataset_idx").on(table.datasetId),
+    index("eval_cases_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+export const evaluationRuns = pgTable(
+  "evaluation_runs",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    datasetId: integer("datasetId").notNull().references(() => evaluationDatasets.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }),
+    status: varchar("status", { length: 40 }).notNull().default("pending"),
+    totalCases: integer("totalCases").notNull().default(0),
+    passedCases: integer("passedCases").notNull().default(0),
+    failedCases: integer("failedCases").notNull().default(0),
+    errorCases: integer("errorCases").notNull().default(0),
+    avgScore: numeric("avgScore", { precision: 5, scale: 4 }),
+    avgLatencyMs: integer("avgLatencyMs"),
+    totalTokens: integer("totalTokens"),
+    estimatedCost: numeric("estimatedCost", { precision: 12, scale: 6 }),
+    results: jsonb("results").$type<Array<Record<string, unknown>>>(),
+    startedAt: timestamp("startedAt"),
+    completedAt: timestamp("completedAt"),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("eval_runs_workspace_idx").on(table.workspaceId),
+    index("eval_runs_dataset_idx").on(table.datasetId),
+    index("eval_runs_agent_idx").on(table.agentId),
+  ],
+);
+
+export const costRecords = pgTable(
+  "cost_records",
+  {
+    id: serial("id").primaryKey(),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: integer("agentId").references(() => agents.id, { onDelete: "set null" }),
+    runId: integer("runId").references(() => agentRuns.id, { onDelete: "set null" }),
+    traceId: integer("traceId").references(() => traces.id, { onDelete: "set null" }),
+    model: varchar("model", { length: 120 }).notNull(),
+    provider: varchar("provider", { length: 120 }).notNull(),
+    promptTokens: integer("promptTokens").notNull().default(0),
+    completionTokens: integer("completionTokens").notNull().default(0),
+    totalTokens: integer("totalTokens").notNull().default(0),
+    costUsd: numeric("costUsd", { precision: 12, scale: 6 }).notNull().default(0),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("cost_records_workspace_idx").on(table.workspaceId),
+    index("cost_records_workspace_created_idx").on(table.workspaceId, table.createdAt),
+    index("cost_records_agent_idx").on(table.agentId),
+  ],
+);
+
+/* ───────────────────── Workflow Engine V2 ───────────────────── */
+
+export const workflowApprovalsStatusEnum = pgEnum("workflow_approvals_status", ["pending", "approved", "rejected", "expired"]);
+
+export const workflowApprovals = pgTable(
+  "workflow_approvals",
+  {
+    id: serial("id").primaryKey(),
+    runId: integer("runId").notNull().references(() => workflowRuns.id, { onDelete: "cascade" }),
+    nodeId: integer("nodeId").notNull().references(() => workflowNodes.id, { onDelete: "cascade" }),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    status: workflowApprovalsStatusEnum("status").notNull().default("pending"),
+    requestContext: jsonb("requestContext").$type<Record<string, unknown>>().notNull().default({}),
+    decisionBy: integer("decisionBy").references(() => users.id, { onDelete: "set null" }),
+    decisionNote: text("decisionNote"),
+    decisionAt: timestamp("decisionAt"),
+    expiresAt: timestamp("expiresAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("workflow_approvals_run_idx").on(table.runId),
+    index("workflow_approvals_workspace_status_idx").on(table.workspaceId, table.status),
+    index("workflow_approvals_workspace_created_idx").on(table.workspaceId, table.createdAt),
+  ],
+);
+
+export const workflowStepCheckpoints = pgTable(
+  "workflow_step_checkpoints",
+  {
+    id: serial("id").primaryKey(),
+    runId: integer("runId").notNull().references(() => workflowRuns.id, { onDelete: "cascade" }),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    nodeKey: varchar("nodeKey", { length: 80 }).notNull(),
+    checkpointData: jsonb("checkpointData").$type<Record<string, unknown>>().notNull().default({}),
+    resumeToken: varchar("resumeToken", { length: 128 }).unique(),
+    isResumable: boolean("isResumable").default(false).notNull(),
+    resumed: boolean("resumed").default(false).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("workflow_checkpoints_run_idx").on(table.runId),
+    index("workflow_checkpoints_resume_idx").on(table.resumeToken),
+    index("workflow_checkpoints_workspace_idx").on(table.workspaceId),
+  ],
+);
+
+export const workflowEvents = pgTable(
+  "workflow_events",
+  {
+    id: serial("id").primaryKey(),
+    runId: integer("runId").notNull().references(() => workflowRuns.id, { onDelete: "cascade" }),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    eventType: varchar("eventType", { length: 80 }).notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    sourceNodeId: integer("sourceNodeId").references(() => workflowNodes.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("workflow_events_run_idx").on(table.runId),
+    index("workflow_events_workspace_type_idx").on(table.workspaceId, table.eventType),
+    index("workflow_events_workspace_created_idx").on(table.workspaceId, table.createdAt),
+  ],
+);
+
+export const workflowSchedules = pgTable(
+  "workflow_schedules",
+  {
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    cronExpr: varchar("cronExpr", { length: 100 }).notNull(),
+    timezone: varchar("timezone", { length: 64 }).default("UTC").notNull(),
+    isActive: boolean("isActive").default(true).notNull(),
+    nextRunAt: timestamp("nextRunAt"),
+    lastRunAt: timestamp("lastRunAt"),
+    runCount: integer("runCount").notNull().default(0),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdById: integer("createdById").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  table => [
+    index("workflow_schedules_workflow_idx").on(table.workflowId),
+    index("workflow_schedules_workspace_idx").on(table.workspaceId),
+    index("workflow_schedules_next_run_idx").on(table.nextRunAt),
+  ],
+);
+
+export const workflowDeploymentsStatusEnum = pgEnum("workflow_deployments_status", ["deployed", "archived", "superseded"]);
+
+export const workflowDeployments = pgTable(
+  "workflow_deployments",
+  {
+    id: serial("id").primaryKey(),
+    workflowId: integer("workflowId").notNull().references(() => workflows.id, { onDelete: "cascade" }),
+    workspaceId: integer("workspaceId").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+    versionId: integer("versionId").references(() => workflowVersions.id, { onDelete: "set null" }),
+    status: workflowDeploymentsStatusEnum("status").notNull().default("deployed"),
+    deployedAt: timestamp("deployedAt").defaultNow().notNull(),
+    deployedById: integer("deployById").references(() => users.id, { onDelete: "set null" }),
+    changelog: text("changelog"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [
+    index("workflow_deployments_workflow_idx").on(table.workflowId),
+    index("workflow_deployments_workspace_idx").on(table.workspaceId),
+    index("workflow_deployments_status_idx").on(table.status),
+  ],
+);

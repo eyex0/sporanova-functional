@@ -36,6 +36,9 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Team = lazy(() => import("./pages/Team"));
 const ReferenceSolutionPage = lazy(() => import("./pages/ReferenceSolutionPage"));
 const CustomerStoryDetail = lazy(() => import("./pages/CustomerStoryDetail"));
+const HaierDemo = lazy(() => import("./pages/HaierDemo"));
+const Observability = lazy(() => import("./pages/Observability"));
+const ApiKeys = lazy(() => import("./pages/ApiKeys"));
 
 function DashboardFallback() {
   return (
@@ -85,6 +88,8 @@ function Router() {
         <Route path="/dashboard/getting-started">{() => <ProtectedRoute component={() => <Suspense fallback={<DashboardFallback />}><DashboardLayout><GettingStarted /></DashboardLayout></Suspense>} />}</Route>
         <Route path="/dashboard/settings">{() => <ProtectedRoute component={() => <Suspense fallback={<DashboardFallback />}><DashboardLayout><Settings /></DashboardLayout></Suspense>} />}</Route>
         <Route path="/dashboard/team">{() => <ProtectedRoute component={() => <Suspense fallback={<DashboardFallback />}><DashboardLayout><Team /></DashboardLayout></Suspense>} />}</Route>
+        <Route path="/dashboard/observability">{() => <ProtectedRoute component={() => <Suspense fallback={<DashboardFallback />}><DashboardLayout><Observability /></DashboardLayout></Suspense>} />}</Route>
+        <Route path="/dashboard/api-keys">{() => <ProtectedRoute component={() => <Suspense fallback={<DashboardFallback />}><DashboardLayout><ApiKeys /></DashboardLayout></Suspense>} />}</Route>
 
         <Route path="/use-cases/:slug">{() => <Suspense fallback={<PageFallback />}><ReferenceSolutionPage /></Suspense>}</Route>
         <Route path="/industries/:slug">{() => <Suspense fallback={<PageFallback />}><ReferenceSolutionPage /></Suspense>}</Route>
@@ -103,6 +108,7 @@ function Router() {
         <Route path="/customers">{() => <CustomersPage />}</Route>
         <Route path="/enterprise">{() => <EnterprisePage />}</Route>
         <Route path="/pricing">{() => <PricingPage />}</Route>
+        <Route path="/haier-demo">{() => <Suspense fallback={<PageFallback />}><HaierDemo /></Suspense>}</Route>
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

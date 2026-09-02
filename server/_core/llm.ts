@@ -421,6 +421,61 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   return (await response.json()) as InvokeResult;
 }
 
+export async function invokeLLMStream(
+  params: InvokeParams
+): Promise<ReadableStream<Uint8Array>> {
+  assertApiKey();
+
+  const {
+    messages,
+    tools,
+    toolChoice,
+    tool_choice,
+    maxTokens,
+    max_tokens,
+    model,
+  } = params;
+
+  const payload: Record<string, unknown> = {
+    messages: messages.map(normalizeMessage),
+    stream: true,
+  };
+
+  if (model) payload.model = model;
+  if (tools && tools.length > 0) payload.tools = tools;
+
+  const normalizedToolChoice = normalizeToolChoice(
+    toolChoice || tool_choice,
+    tools
+  );
+  if (normalizedToolChoice) payload.tool_choice = normalizedToolChoice;
+
+  const resolvedMaxTokens = max_tokens ?? maxTokens;
+  if (typeof resolvedMaxTokens === "number") payload.max_tokens = resolvedMaxTokens;
+
+  const response = await fetchWithBackoff(resolveApiUrl(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${ENV.ai.apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `LLM stream failed: ${response.status} ${response.statusText} – ${errorText}`
+    );
+  }
+
+  if (!response.body) {
+    throw new Error("LLM stream returned no body");
+  }
+
+  return response.body;
+}
+
 export type ModelInfo = {
   id: string;
   object: string;

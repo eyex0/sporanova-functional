@@ -34,3 +34,19 @@ export const ENV = {
     googleClientSecret: getOptional("OAUTH_GOOGLE_CLIENT_SECRET"),
   },
 };
+
+/** Validate required environment variables at startup. Throws on missing critical vars. */
+export function validateEnv(): void {
+  const required = ["DATABASE_URL"];
+  const missing = required.filter((key) => !process.env[key]?.trim());
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
+  }
+  if (ENV.isProduction) {
+    const prodRequired = ["SESSION_SECRET", "AI_API_KEY"];
+    const prodMissing = prodRequired.filter((key) => !process.env[key]?.trim());
+    if (prodMissing.length > 0) {
+      throw new Error(`Missing required production environment variables: ${prodMissing.join(", ")}`);
+    }
+  }
+}

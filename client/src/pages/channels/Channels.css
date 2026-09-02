@@ -1,0 +1,807 @@
+/* ═══════════════════════════════════════════════════════
+   SOPRANOVA Channels Page
+   ═══════════════════════════════════════════════════════ */
+
+.channels-page {
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ──── Header ──── */
+.ch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.ch-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.ch-header p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 4px 0 0;
+}
+
+/* ──── Search Bar ──── */
+.ch-search-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.ch-search-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: border-color 0.15s;
+}
+
+.ch-search-input:focus-within {
+  border-color: #6366f1;
+}
+
+.ch-search-input svg {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.ch-search-input input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #111;
+  background: transparent;
+}
+
+.ch-search-input input::placeholder {
+  color: #9ca3af;
+}
+
+.ch-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: #e5e7eb;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ch-search-clear:hover {
+  background: #d1d5db;
+  color: #111;
+}
+
+/* ──── Filter Tabs ──── */
+.ch-filter-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ch-filter-tab {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ch-filter-tab:hover {
+  border-color: #d1d5db;
+  color: #111;
+}
+
+.ch-filter-tab.active {
+  background: #111;
+  border-color: #111;
+  color: #fff;
+}
+
+/* ──── Loading / Empty ──── */
+.ch-loading {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0;
+}
+
+.ch-empty {
+  text-align: center;
+  padding: 64px 24px;
+  color: #9ca3af;
+}
+
+.ch-empty p {
+  font-size: 14px;
+  margin: 8px 0 0;
+  color: #6b7280;
+}
+
+/* ──── Category Sections ──── */
+.ch-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.ch-category-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ch-category-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+/* ──── Channel Grid ──── */
+.ch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .ch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ──── Channel Card ──── */
+.ch-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.ch-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-color: #d1d5db;
+}
+
+.ch-card-coming-soon {
+  opacity: 0.7;
+}
+
+.ch-card-coming-soon:hover {
+  opacity: 0.85;
+}
+
+.ch-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ch-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ch-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ch-card-info h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+  margin: 0;
+}
+
+.ch-card-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #6366f1;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* ──── Status Badge ──── */
+.ch-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.ch-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.ch-configured {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ch-disabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.ch-coming-soon {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ──── Card Body ──── */
+.ch-card-desc {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+}
+
+/* ──── Card Footer ──── */
+.ch-card-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ──── Buttons ──── */
+.ch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111;
+  transition: all 0.15s;
+}
+
+.ch-btn:hover {
+  background: #f9fafb;
+}
+
+.ch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ch-btn-enable {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.ch-btn-enable:hover {
+  background: #4f46e5;
+}
+
+.ch-btn-manage {
+  color: #6366f1;
+  border-color: #c7d2fe;
+  background: #eef2ff;
+}
+
+.ch-btn-manage:hover {
+  background: #e0e7ff;
+}
+
+.ch-btn-disabled {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Config Dialog
+   ═══════════════════════════════════════════════════════ */
+
+.ch-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.ch-dialog {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.ch-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 0;
+}
+
+.ch-dialog-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+.ch-dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ch-dialog-close:hover {
+  background: #e5e7eb;
+  color: #111;
+}
+
+/* ──── Steps ──── */
+.ch-dialog-steps {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ch-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.ch-step span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ch-step.active {
+  color: #6366f1;
+}
+
+.ch-step.active span {
+  background: #6366f1;
+  color: #fff;
+}
+
+/* ──── Dialog Body ──── */
+.ch-dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+
+.ch-dialog-body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+  margin: 0 0 4px;
+}
+
+.ch-dialog-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 16px;
+}
+
+/* ──── Agent List ──── */
+.ch-agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ch-agent-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.ch-agent-option:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.ch-agent-option.selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.ch-agent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ch-agent-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
+.ch-agent-status {
+  font-size: 11px;
+  color: #9ca3af;
+  text-transform: capitalize;
+}
+
+.ch-agent-check {
+  color: #6366f1;
+}
+
+.ch-no-agents {
+  text-align: center;
+  padding: 24px;
+  color: #9ca3af;
+}
+
+.ch-no-agents p {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+/* ──── Form Fields ──── */
+.ch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ch-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ch-form-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ch-required {
+  color: #ef4444;
+}
+
+.ch-field-desc {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.ch-form-field input,
+.ch-form-field select,
+.ch-form-field textarea {
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.ch-form-field input:focus,
+.ch-form-field select:focus,
+.ch-form-field textarea:focus {
+  border-color: #6366f1;
+}
+
+.ch-form-field input::placeholder,
+.ch-form-field textarea::placeholder {
+  color: #9ca3af;
+}
+
+/* ──── Embed Code ──── */
+.ch-embed-code {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 14px;
+  position: relative;
+}
+
+.ch-embed-code pre {
+  color: #e0e0e0;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.ch-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ch-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ch-no-embed {
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ──── API Endpoint Info ──── */
+.ch-api-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ch-api-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ch-api-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ch-api-value {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.ch-api-value code {
+  font-family: 'Monaco', 'Menlo', monospace;
+  color: #111;
+  word-break: break-all;
+}
+
+/* ──── Confirm Summary ──── */
+.ch-confirm-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ch-confirm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+}
+
+.ch-confirm-row span {
+  color: #6b7280;
+}
+
+.ch-confirm-row strong {
+  color: #111;
+}
+
+/* ──── Dialog Footer ──── */
+.ch-dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  gap: 8px;
+}
+
+.ch-dialog-footer-right {
+  display: flex;
+  gap: 8px;
+}
+
+.ch-btn-back {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ch-btn-back:hover {
+  background: #f9fafb;
+}
+
+.ch-btn-next {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #6366f1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ch-btn-next:hover {
+  background: #4f46e5;
+}
+
+.ch-btn-next:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ch-btn-save {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #10b981;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+
+.ch-btn-save:hover {
+  background: #059669;
+}
+
+.ch-btn-save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.ch-btn-disable {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ch-btn-disable:hover {
+  background: #fee2e2;
+}
+
+/* ──── Error State ──── */
+.ch-dialog-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 13px;
+  border-top: 1px solid #fecaca;
+}
+
+/* ──── Spinner ──── */
+.spin {
+  animation: ch-spin 1s linear infinite;
+}
+
+@keyframes ch-spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: ch-spin 0.6s linear infinite;
+  margin: 48px auto;
+}

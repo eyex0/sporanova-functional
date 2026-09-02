@@ -1,91 +1,350 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { channels } from "../../drizzle/schema";
+import { channels, agents } from "../../drizzle/schema";
 import { workspaceManagerProcedure, workspaceProcedure } from "../authz";
-import { requireDb } from "../db";
+import { requireDb, writeAuditLog } from "../db";
 import { router } from "../_core/trpc";
+import { sendChannelMessage } from "../_core/channelAdapter";
+import { getChannelAdapter } from "../_core/channelAdapter";
+import { getChannelById, mergeRegistryWithDb, searchChannels, CHANNEL_REGISTRY, type ChannelType } from "../_core/channelRegistry";
 
 const workspaceInput = z.object({ workspaceId: z.number().int().positive() });
 
-const DEFAULT_CHANNELS: Array<{ type: "widget" | "help_page" | "center_stage" | "messenger" | "whatsapp" | "instagram" | "slack" | "email" | "sms" | "voice"; name: string; available: boolean; description: string; }> = [
-  { type: "widget", name: "Chat bubble", available: true, description: "Embed a chat bubble on your website." },
-  { type: "help_page", name: "Help page", available: true, description: "Public help center with articles and AI search." },
-  { type: "center_stage", name: "Center stage", available: true, description: "Full-screen conversational experience inside your product." },
-  { type: "messenger", name: "Messenger", available: false, description: "Connect your Facebook Messenger account." },
-  { type: "whatsapp", name: "WhatsApp", available: false, description: "Reach customers on WhatsApp Business." },
-  { type: "instagram", name: "Instagram", available: false, description: "Reply to Instagram DMs from your agent." },
-  { type: "slack", name: "Slack", available: true, description: "Use your agent inside Slack channels." },
-  { type: "email", name: "Email", available: true, description: "Auto-respond to inbound support emails." },
-];
-
-function buildEmbedCode(workspaceId: number, type: string): string {
-  const origin = process.env.APP_URL || process.env.APP_ORIGIN || "https://sopranova-api.onrender.com";
-  return `<!-- SOPRANOVA ${type} embed -->\n<script async src="${origin}/embed.js" data-workspace="${workspaceId}" data-channel="${type}"></script>`;
-}
+const channelTypeEnum = z.enum([
+  "widget", "help_page", "center_stage", "messenger",
+  "whatsapp", "instagram", "slack", "email", "sms", "voice",
+  "api", "shopify", "zendesk", "salesforce", "wordpress", "zapier",
+  "android-sdk", "ios-sdk",
+]);
 
 export const channelsRouter = router({
-  list: workspaceProcedure.input(workspaceInput).query(async ({ ctx, input }) => {
-    const db = await requireDb();
-    const rows = await db.select().from(channels).where(eq(channels.workspaceId, ctx.workspaceId)).orderBy(desc(channels.createdAt));
-    const byType = new Map(rows.map(r => [r.type, r]));
-    return DEFAULT_CHANNELS.map(def => {
-      const existing = byType.get(def.type);
+  /** List all channels merged with DB state */
+  list: workspaceProcedure
+    .input(workspaceInput.extend({ search: z.string().trim().max(200).optional() }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const dbChannels = await db
+        .select()
+        .from(channels)
+        .where(and(eq(channels.workspaceId, ctx.workspaceId), isNull(channels.deletedAt)));
+
+      let result = mergeRegistryWithDb(dbChannels);
+
+      // Apply search filter
+      if (input.search) {
+        const q = input.search.toLowerCase().trim();
+        result = result.filter(c =>
+          c.name.toLowerCase().includes(q) ||
+          c.description.toLowerCase().includes(q) ||
+          c.category.toLowerCase().includes(q) ||
+          c.id.toLowerCase().includes(q)
+        );
+      }
+
+      return result;
+    }),
+
+  /** Get a single channel's full details */
+  get: workspaceProcedure
+    .input(workspaceInput.extend({ type: channelTypeEnum }))
+    .query(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const def = getChannelById(input.type as ChannelType);
+      if (!def) throw new TRPCError({ code: "NOT_FOUND", message: "Unknown channel type." });
+
+      const row = (await db
+        .select()
+        .from(channels)
+        .where(
+          and(
+            eq(channels.workspaceId, ctx.workspaceId),
+            eq(channels.type, input.type),
+          ),
+        )
+        .limit(1))[0];
+
+      // Fetch agent info if agentId exists
+      let agentInfo = null;
+      const agentId = row?.agentId ?? ((row?.configuration as Record<string, unknown>)?.agentId as number);
+      if (agentId) {
+        const agent = (await db
+          .select({ id: agents.id, name: agents.name, status: agents.status })
+          .from(agents)
+          .where(eq(agents.id, agentId))
+          .limit(1))[0];
+        agentInfo = agent ?? null;
+      }
+
       return {
-        type: def.type,
-        name: def.name,
-        description: def.description,
-        available: def.available,
-        status: existing?.status ?? "draft",
-        id: existing?.id ?? null,
-        embedCode: existing?.embedCode ?? (def.available ? buildEmbedCode(ctx.workspaceId, def.type) : null),
-        configuration: existing?.configuration ?? {},
-        createdAt: existing?.createdAt ?? null,
+        definition: def,
+        configured: !!row,
+        config: row?.configuration as Record<string, unknown> ?? null,
+        status: row?.status ?? "draft",
+        channelDbId: row?.id ?? null,
+        agentId: agentId ?? null,
+        agent: agentInfo,
       };
-    });
-  }),
+    }),
 
-  configure: workspaceManagerProcedure.input(workspaceInput.extend({
-    type: z.enum(["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]),
-    status: z.enum(["active", "draft", "disabled"]).default("draft"),
-    name: z.string().trim().max(160).optional(),
-    configuration: z.record(z.unknown()).optional(),
-  })).mutation(async ({ ctx, input }) => {
-    const db = await requireDb();
-    const [existing] = await db.select().from(channels).where(and(eq(channels.workspaceId, ctx.workspaceId), eq(channels.type, input.type)));
-    const embedCode = buildEmbedCode(ctx.workspaceId, input.type);
-    if (existing) {
-      const [row] = await db.update(channels).set({
-        status: input.status,
-        name: input.name ?? existing.name,
-        configuration: input.configuration ?? existing.configuration,
-        embedCode,
-        updatedAt: new Date(),
-      }).where(eq(channels.id, existing.id)).returning();
-      return row;
-    }
-    const [row] = await db.insert(channels).values({
-      workspaceId: ctx.workspaceId,
-      type: input.type,
-      name: input.name ?? DEFAULT_CHANNELS.find(d => d.type === input.type)?.name ?? input.type,
-      status: input.status,
-      configuration: input.configuration ?? {},
-      embedCode,
-      createdById: ctx.user.id,
-    }).returning();
-    return row;
-  }),
+  /** Get channel registry definition (for config fields, etc.) */
+  registry: workspaceProcedure
+    .input(workspaceInput.extend({ type: channelTypeEnum.optional() }))
+    .query(async ({ input }) => {
+      if (input.type) {
+        const def = getChannelById(input.type as ChannelType);
+        return def ?? null;
+      }
+      return CHANNEL_REGISTRY;
+    }),
 
-  disable: workspaceManagerProcedure.input(workspaceInput.extend({ type: z.enum(["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]) })).mutation(async ({ ctx, input }) => {
-    const db = await requireDb();
-    const [row] = await db.update(channels).set({ status: "disabled", updatedAt: new Date() }).where(and(eq(channels.workspaceId, ctx.workspaceId), eq(channels.type, input.type))).returning();
-    return row ?? null;
-  }),
+  /** Configure (create or update) a channel */
+  configure: workspaceManagerProcedure
+    .input(workspaceInput.extend({
+      type: channelTypeEnum,
+      name: z.string().trim().min(1).max(160).optional(),
+      status: z.enum(["active", "draft", "disabled"]).optional(),
+      configuration: z.record(z.string(), z.unknown()).optional(),
+      agentId: z.number().int().positive().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
 
-  getEmbedCode: workspaceProcedure.input(workspaceInput.extend({ type: z.enum(["widget", "help_page", "center_stage", "messenger", "whatsapp", "instagram", "slack", "email", "sms", "voice"]) })).query(async ({ ctx, input }) => {
-    const db = await requireDb();
-    const [row] = await db.select({ embedCode: channels.embedCode }).from(channels).where(and(eq(channels.workspaceId, ctx.workspaceId), eq(channels.type, input.type)));
-    return { embedCode: row?.embedCode ?? buildEmbedCode(ctx.workspaceId, input.type) };
-  }),
+      // Validate that channel type is known
+      const def = getChannelById(input.type as ChannelType);
+      if (!def) throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown channel type: ${input.type}` });
+
+      // Cannot configure coming_soon channels
+      if (def.status === "coming_soon") {
+        throw new TRPCError({ code: "FORBIDDEN", message: `${def.name} is not yet available.` });
+      }
+
+      // Validate config if adapter exists
+      if (input.configuration) {
+        const adapter = getChannelAdapter(input.type as ChannelType);
+        if (adapter && !adapter.validateConfig(input.configuration)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Invalid configuration for ${def.name} channel`,
+          });
+        }
+      }
+
+      // Validate agentId exists if provided
+      if (input.agentId) {
+        const agent = (await db
+          .select({ id: agents.id })
+          .from(agents)
+          .where(
+            and(
+              eq(agents.id, input.agentId),
+              eq(agents.workspaceId, ctx.workspaceId),
+              isNull(agents.deletedAt),
+            ),
+          )
+          .limit(1))[0];
+        if (!agent) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found in this workspace." });
+        }
+      }
+
+      const config = { ...(input.configuration ?? {}) };
+      if (input.agentId) {
+        config.agentId = input.agentId;
+      }
+
+      const existing = await db
+        .select({ id: channels.id })
+        .from(channels)
+        .where(
+          and(
+            eq(channels.workspaceId, ctx.workspaceId),
+            eq(channels.type, input.type),
+          ),
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db
+          .update(channels)
+          .set({
+            name: input.name,
+            status: input.status,
+            agentId: input.agentId ?? null,
+            configuration: config,
+            updatedAt: new Date(),
+          })
+          .where(eq(channels.id, existing[0].id));
+      } else {
+        await db.insert(channels).values({
+          workspaceId: ctx.workspaceId,
+          type: input.type as ChannelType,
+          name: input.name ?? def.name,
+          status: input.status ?? "active",
+          agentId: input.agentId ?? null,
+          configuration: config,
+          createdById: ctx.user.id,
+        });
+      }
+
+      await writeAuditLog({
+        workspaceId: ctx.workspaceId,
+        actorUserId: ctx.user.id,
+        action: "channel.configured",
+        resourceType: "channel",
+        metadata: { type: input.type, status: input.status, agentId: input.agentId },
+      });
+
+      return { success: true };
+    }),
+
+  /** Disable a channel */
+  disable: workspaceManagerProcedure
+    .input(workspaceInput.extend({ type: channelTypeEnum }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await requireDb();
+      const def = getChannelById(input.type as ChannelType);
+      if (!def) throw new TRPCError({ code: "NOT_FOUND", message: "Unknown channel type." });
+
+      const updated = await db
+        .update(channels)
+        .set({ status: "disabled", updatedAt: new Date() })
+        .where(
+          and(
+            eq(channels.workspaceId, ctx.workspaceId),
+            eq(channels.type, input.type),
+          ),
+        )
+        .returning({ id: channels.id });
+
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Channel not configured in this workspace." });
+      }
+
+      await writeAuditLog({
+        workspaceId: ctx.workspaceId,
+        actorUserId: ctx.user.id,
+        action: "channel.disabled",
+        resourceType: "channel",
+        metadata: { type: input.type },
+      });
+
+      return { success: true };
+    }),
+
+  /** Get embed code for client-side channels */
+  getEmbedCode: workspaceProcedure
+    .input(workspaceInput.extend({ type: channelTypeEnum }))
+    .query(async ({ ctx, input }) => {
+      const def = getChannelById(input.type as ChannelType);
+      if (!def || !def.isClientSide) return null;
+
+      const db = await requireDb();
+      const channel = (await db
+        .select()
+        .from(channels)
+        .where(
+          and(
+            eq(channels.workspaceId, ctx.workspaceId),
+            eq(channels.type, input.type),
+            eq(channels.status, "active"),
+          ),
+        )
+        .limit(1))[0];
+
+      if (!channel) return null;
+
+      const config = (channel.configuration ?? {}) as Record<string, unknown>;
+
+      // Generate real embed code based on channel type
+      const origin = "https://sopranova-api.onrender.com";
+
+      if (input.type === "widget") {
+        return {
+          embedCode: `<script src="${origin}/embed.js" data-workspace="${ctx.workspaceId}" data-channel="widget"></script>`,
+          config,
+          usage: `Paste this code before the closing </body> tag on your website.`,
+        };
+      }
+
+      if (input.type === "help_page") {
+        const helpUrl = `${origin}/help/${ctx.workspaceId}`;
+        return {
+          embedCode: `<iframe src="${helpUrl}" width="100%" height="600" frameborder="0" style="border-radius: 12px; border: 1px solid #e5e7eb;"></iframe>`,
+          helpUrl,
+          config,
+          usage: `Embed this iframe on your help page, or share the URL directly.`,
+        };
+      }
+
+      if (input.type === "center_stage") {
+        return {
+          embedCode: `<script src="${origin}/embed.js" data-workspace="${ctx.workspaceId}" data-channel="center_stage"></script>`,
+          config,
+          usage: `Paste this code before the closing </body> tag. The chat will open centered over your page.`,
+        };
+      }
+
+      if (input.type === "api") {
+        const agentId = channel.agentId ?? (config.agentId as number) ?? 1;
+        return {
+          endpoint: `${origin}/api/v1/agent/${agentId}/chat`,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer YOUR_API_KEY",
+          },
+          body: { message: "Hello!", conversationId: "optional" },
+          exampleCurl: `curl -X POST ${origin}/api/v1/agent/${agentId}/chat -H "Content-Type: application/json" -H "Authorization: Bearer YOUR_API_KEY" -d '{"message":"Hello!"}'`,
+          config,
+          usage: `Use this REST endpoint with your API key to send messages to your agent.`,
+        };
+      }
+
+      return { embedCode: null, config };
+    }),
+
+  /** Send outbound message through a channel */
+  send: workspaceManagerProcedure
+    .input(workspaceInput.extend({
+      type: channelTypeEnum,
+      recipientId: z.string().trim().min(1),
+      content: z.string().trim().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const def = getChannelById(input.type as ChannelType);
+      if (!def) throw new TRPCError({ code: "NOT_FOUND", message: "Unknown channel type." });
+      if (!def.actions.send) {
+        throw new TRPCError({ code: "FORBIDDEN", message: `Sending is not supported for ${def.name}.` });
+      }
+
+      return sendChannelMessage(ctx.workspaceId, {
+        channelType: input.type as ChannelType,
+        workspaceId: ctx.workspaceId,
+        recipientId: input.recipientId,
+        content: input.content,
+        contentType: "text",
+      });
+    }),
+
+  /** Get config schema for a channel type */
+  configSchema: workspaceProcedure
+    .input(workspaceInput.extend({ type: channelTypeEnum }))
+    .query(async ({ input }) => {
+      const def = getChannelById(input.type as ChannelType);
+      if (!def) return { schema: [] };
+      return { schema: def.configFields };
+    }),
+
+  /** Get list of agents in workspace for agent selection */
+  agents: workspaceProcedure
+    .input(workspaceInput)
+    .query(async ({ ctx }) => {
+      const db = await requireDb();
+      return db
+        .select({ id: agents.id, name: agents.name, status: agents.status })
+        .from(agents)
+        .where(and(eq(agents.workspaceId, ctx.workspaceId), isNull(agents.deletedAt)))
+        .orderBy(agents.name);
+    }),
 });
-
-export default undefined;

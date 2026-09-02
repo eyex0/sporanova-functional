@@ -386,3 +386,551 @@
   background: #F9FAFB;
   border-color: #D1D0CC;
 }
+
+/* ──── Workflow Editor ──── */
+.workflow-editor-page {
+  max-width: 100%;
+  padding: 16px 24px;
+}
+
+.workflow-editor-page .page-header {
+  margin-bottom: 16px;
+}
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #6B7280;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+
+.btn-back:hover {
+  color: #1A1F3C;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr 260px;
+  gap: 16px;
+  height: calc(100vh - 160px);
+}
+
+/* Node Palette */
+.node-palette {
+  background: #fff;
+  border: 1px solid #E8E6E1;
+  border-radius: 12px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.node-palette h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.palette-category {
+  margin-bottom: 16px;
+}
+
+.palette-category-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.node-palette-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.palette-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1.5px solid #E8E6E1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1A1F3C;
+  text-align: left;
+}
+
+.palette-node:hover {
+  background: #F9FAFB;
+  border-color: #D1D0CC;
+  transform: translateY(-1px);
+}
+
+/* Canvas */
+.editor-canvas {
+  position: relative;
+  background: #fafafa;
+  border: 1px solid #E8E6E1;
+  border-radius: 12px;
+  overflow: auto;
+  min-height: 400px;
+}
+
+.edge-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.edge-layer path {
+  pointer-events: stroke;
+}
+
+.edge-label {
+  font-size: 11px;
+  fill: #9CA3AF;
+  pointer-events: none;
+}
+
+.edge-delete {
+  fill: #EF4444;
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: all;
+  transition: opacity 0.15s;
+}
+
+.edge-delete:hover {
+  opacity: 1;
+}
+
+.canvas-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 2px solid #E8E6E1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  min-width: 140px;
+  user-select: none;
+}
+
+.canvas-node:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.canvas-node.selected {
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.canvas-node .node-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.canvas-node .node-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.canvas-node .node-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1A1F3C;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.canvas-node .node-type-tag {
+  font-size: 10px;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.canvas-node .node-delete {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #EF4444;
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.canvas-node:hover .node-delete {
+  opacity: 1;
+}
+
+.canvas-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #9CA3AF;
+}
+
+.canvas-empty p {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+/* Properties Panel */
+.node-properties {
+  background: #fff;
+  border: 1px solid #E8E6E1;
+  border-radius: 12px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.node-properties h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0 0 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.props-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.props-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.props-row label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6B7280;
+}
+
+.props-row input,
+.props-row select {
+  padding: 6px 8px;
+  border: 1px solid #E8E6E1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1A1F3C;
+  outline: none;
+}
+
+.props-row input:focus,
+.props-row select:focus {
+  border-color: #6366F1;
+}
+
+.props-hint {
+  font-size: 11px;
+  color: #9CA3AF;
+  line-height: 1.4;
+}
+
+.props-empty {
+  text-align: center;
+  color: #9CA3AF;
+  padding: 32px 0;
+}
+
+.props-empty p {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+/* Run Result Modal */
+.run-result-modal {
+  max-width: 640px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.run-result-modal pre {
+  background: #F3F4F6;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 12px;
+  color: #1A1F3C;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Status: Waiting Approval */
+.status-badge.status-waiting_approval {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+/* Approval Panel */
+.approval-panel {
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.approval-panel h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400E;
+  margin: 0 0 8px;
+}
+
+.approval-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-approve {
+  padding: 6px 12px;
+  background: #10B981;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-reject {
+  padding: 6px 12px;
+  background: #EF4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Code Editor */
+.code-editor {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  padding: 12px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  resize: vertical;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.code-editor:focus {
+  border-color: #6366F1;
+  outline: none;
+}
+
+/* ──── React Flow Layout ──── */
+.rf-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr 280px;
+  gap: 16px;
+  height: calc(100vh - 160px);
+}
+
+/* ──── React Flow Canvas ──── */
+.rf-canvas {
+  position: relative;
+  border: 1px solid #E8E6E1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.rf-workflow {
+  background: #fafafa;
+}
+
+/* ──── React Flow Custom Node ──── */
+.rf-node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 2px solid #E8E6E1;
+  border-radius: 10px;
+  min-width: 140px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.rf-node:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.react-flow__node.selected .rf-node {
+  border-color: #6366F1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.rf-node-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rf-node-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rf-node-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1A1F3C;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rf-node-type {
+  font-size: 10px;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ──── React Flow Handles ──── */
+.rf-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #94a3b8 !important;
+  border: 2px solid #fff !important;
+}
+
+.rf-handle:hover {
+  background: #6366f1 !important;
+}
+
+/* ──── React Flow Controls ──── */
+.react-flow__controls {
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.react-flow__controls-button {
+  background: #fff !important;
+  border: none !important;
+  border-bottom: 1px solid #E8E6E1 !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #F9FAFB !important;
+}
+
+/* ──── React Flow MiniMap ──── */
+.react-flow__minimap {
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ──── React Flow Empty Overlay ──── */
+.rf-empty-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #9CA3AF;
+  pointer-events: none;
+}
+
+.rf-empty-overlay p {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+/* ──── Props Header ──── */
+.props-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.props-header h3 {
+  margin: 0;
+}
+
+.btn-delete-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #FEE2E2;
+  background: #FEF2F2;
+  color: #EF4444;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-delete-node:hover {
+  background: #FEE2E2;
+  border-color: #FECACA;
+}

@@ -1,11 +1,14 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { agentRuns, agents } from "../../drizzle/schema";
+import { agentRuns, agents, conversations, messages } from "../../drizzle/schema";
 import { workspaceManagerProcedure, workspaceMemberProcedure, workspaceProcedure } from "../authz";
 import { requireDb, writeAuditLog } from "../db";
 import { enqueueJob } from "../jobs";
 import { router } from "../_core/trpc";
+import { AgentRuntime } from "../_core/agentRuntime";
+
+const runtime = new AgentRuntime({ useRag: true });
 
 const workspaceIdInput = z.object({ workspaceId: z.number().int().positive() });
 
@@ -108,5 +111,67 @@ export const agentsRouter = router({
       await db.update(agents).set({ deletedAt: new Date() }).where(and(eq(agents.id, input.agentId), eq(agents.workspaceId, ctx.workspaceId)));
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "agent.deleted", resourceType: "agent", resourceId: input.agentId });
       return { success: true };
+    }),
+
+  chat: workspaceMemberProcedure
+    .input(workspaceIdInput.extend({
+      agentId: z.number().int().positive(),
+      conversationId: z.number().int().positive(),
+      message: z.string().trim().min(1).max(4000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await workspaceAgent(ctx.workspaceId, input.agentId);
+
+      const db = await requireDb();
+      const conversation = (
+        await db
+          .select()
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.id, input.conversationId),
+              eq(conversations.workspaceId, ctx.workspaceId),
+              isNull(conversations.deletedAt)
+            )
+          )
+          .limit(1)
+      )[0];
+      if (!conversation) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Conversation not found in this workspace." });
+      }
+
+      await db.insert(messages).values({
+        workspaceId: ctx.workspaceId,
+        conversationId: input.conversationId,
+        authorUserId: ctx.user.id,
+        role: "user",
+        kind: "question",
+        content: input.message,
+      });
+
+      const result = await runtime.execute({
+        workspaceId: ctx.workspaceId,
+        agentId: input.agentId,
+        conversationId: input.conversationId,
+        userId: ctx.user.id,
+        message: input.message,
+      });
+
+      if (result.status === "failed") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.error || "The agent could not process this request. Please retry.",
+        });
+      }
+
+      return {
+        id: result.executionId,
+        content: result.response,
+        kind: "insight" as const,
+        model: result.model,
+        provider: result.provider,
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+      };
     }),
 });

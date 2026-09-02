@@ -17,6 +17,9 @@ import { leadsRouter } from "./routers/leads";
 import { outboundRouter } from "./routers/outbound";
 import { preferencesRouter, workspacesRouter } from "./routers/workspaces";
 import { workflowsRouter } from "./routers/workflows";
+import { toolsRouter } from "./routers/tools";
+import { observabilityRouter } from "./routers/observability";
+import { apiKeysRouter } from "./routers/apiKeys";
 
 const credentialsInput = z.object({
   email: z.string().trim().email().max(320),
@@ -83,6 +86,9 @@ export const appRouter = router({
   helpdesk: helpdeskRouter,
   channels: channelsRouter,
   outbound: outboundRouter,
+  tools: toolsRouter,
+  observability: observabilityRouter,
+  apiKeys: apiKeysRouter,
 });
 
 export type AppRouter = typeof appRouter;

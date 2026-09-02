@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { agentsApi, conversationsApi, intelligenceApi } from "@/lib/trpc";
+import { agentsApi, conversationsApi } from "@/lib/trpc";
 import {
   Sparkles,
   Bold,
@@ -104,24 +104,20 @@ export default function Playground() {
 
   const sendMessage = async () => {
     const text = chatInput.trim();
-    if (!text || !workspaceId) return;
+    if (!text || !workspaceId || !activeAgent) return;
     setChatInput("");
     setMessages((prev) => [...prev, { role: "user", text }]);
     setThinking(true);
     try {
       const convId = await ensureConversation();
-      const result = await intelligenceApi.ask({
+      const result = await agentsApi.chat({
         workspaceId,
+        agentId: activeAgent.id,
         conversationId: convId,
-        question: text,
+        message: text,
       }) as any;
-      const answer = result?.content ?? result?.answer ?? "I couldn't generate a response. Please try again.";
-      const sources = (result?.sources ?? []).map((s: any) => ({
-        label: s.label ?? s.title ?? "Source",
-        sourceType: s.sourceType ?? "manual",
-        sourceReference: s.sourceReference ?? s.reference ?? "",
-      }));
-      setMessages((prev) => [...prev, { role: "assistant", text: answer, sources }]);
+      const answer = result?.content ?? "I couldn't generate a response. Please try again.";
+      setMessages((prev) => [...prev, { role: "assistant", text: answer }]);
     } catch (err) {
       setMessages((prev) => [...prev, { role: "assistant", text: "Sorry, something went wrong. Please try again." }]);
       toast.error("Failed to get response");

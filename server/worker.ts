@@ -23,6 +23,7 @@ import { sendEmail } from "./email";
 import { storageGet } from "./storage";
 import { invokeLLM } from "./_core/llm";
 import { ENV } from "./_core/env";
+import { AgentRuntime } from "./_core/agentRuntime";
 
 const workerId = process.env.WORKER_ID ?? `worker-${randomUUID().slice(0, 8)}`;
 const pollMs = Number(process.env.WORKER_POLL_MS ?? 1500);
@@ -89,6 +90,8 @@ export function workflowExecutionPlan(nodes: Array<{ id: number; nodeKey: string
   return { executed, unsupported };
 }
 
+const runtime = new AgentRuntime({ useRag: true });
+
 async function processAgentRun(payload: Record<string, unknown>) {
   const runId = Number(payload.runId); const agentId = Number(payload.agentId); const workspaceId = Number(payload.workspaceId); const actorUserId = Number(payload.actorUserId); const instruction = String(payload.instruction ?? "");
   if (!Number.isInteger(runId) || !Number.isInteger(agentId) || !Number.isInteger(workspaceId) || !instruction) throw new Error("Invalid agent.run job payload");
@@ -97,9 +100,17 @@ async function processAgentRun(payload: Record<string, unknown>) {
   if (!agent) throw new Error("Agent no longer exists in the workspace");
   await db.update(agentRuns).set({ status: "running", progress: 20, startedAt: new Date() }).where(and(eq(agentRuns.id, runId), eq(agentRuns.workspaceId, workspaceId)));
   try {
-    const result = await invokeLLM({ model: ENV.ai.model, messages: [{ role: "system", content: `You are the SOPRANOVA agent "${agent.name}". Purpose: ${agent.purpose}. Provide a precise operational response using only the context supplied.` }, { role: "user", content: instruction }], maxTokens: 1200 });
-    const content = responseText(result.choices[0]?.message?.content) || "No response was produced.";
-    await db.update(agentRuns).set({ status: "completed", progress: 100, output: { content }, completedAt: new Date() }).where(eq(agentRuns.id, runId));
+    const result = await runtime.execute({
+      workspaceId,
+      agentId,
+      userId: actorUserId,
+      message: instruction,
+    });
+    if (result.status === "failed") {
+      await db.update(agentRuns).set({ status: "failed", progress: 100, errorMessage: result.error || "Runtime execution failed", completedAt: new Date() }).where(eq(agentRuns.id, runId));
+      throw new Error(result.error || "Runtime execution failed");
+    }
+    await db.update(agentRuns).set({ status: "completed", progress: 100, output: { content: result.response, model: result.model, provider: result.provider, usage: result.usage, latencyMs: result.latencyMs }, completedAt: new Date() }).where(eq(agentRuns.id, runId));
     await db.update(agents).set({ lastActivityAt: new Date(), status: "idle" }).where(eq(agents.id, agentId));
     await writeAuditLog({ workspaceId, actorUserId, action: "agent.run_completed", resourceType: "agentRun", resourceId: runId, metadata: { agentId } });
   } catch (error) {
@@ -200,6 +211,7 @@ async function processOnce() {
     else if (job.type === "data-source.sync") await processDataSourceSync(job.payload);
     else if (job.type === "document.process") await processDocument(job.payload);
     else if (job.type === "workflow.run") await processWorkflowRun(job.payload);
+    else if (job.type === "workflow.resume") await processWorkflowRun(job.payload);
     else throw new Error(`Unsupported job type: ${job.type}`);
     await completeJob(job.id);
   } catch (error) {

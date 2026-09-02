@@ -30,12 +30,12 @@ async function trpcFetch<T>(path: string, input?: unknown): Promise<T> {
 
 async function trpcMutate<T>(path: string, input?: unknown): Promise<T> {
   const url = `${API_URL}/api/trpc/${path}`;
-  const body = input !== undefined ? superjson.serialize(input) : undefined;
+  const serialized = input !== undefined ? superjson.serialize(input) : { json: {} };
   const res = await fetch(url, {
     method: "POST",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: body ? JSON.stringify(body) : undefined,
+    body: JSON.stringify(serialized),
   });
   if (!res.ok) {
     const errBody = await res.json().catch(() => null);
@@ -91,6 +91,41 @@ export const agentsApi = {
   delete: (input: Record<string, unknown>) => trpcMutate("agents.delete", input),
   runs: (input: Record<string, unknown>) => trpcFetch("agents.runs", input),
   runNow: (input: Record<string, unknown>) => trpcMutate("agents.runNow", input),
+  chat: (input: Record<string, unknown>) => trpcMutate("agents.chat", input),
+  chatStream: async function* (input: {
+    workspaceId: number;
+    agentId: number;
+    conversationId: number;
+    message: string;
+  }) {
+    const res = await fetch("/api/agents/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error(`Stream failed: ${res.status}`);
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") return;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.content) yield parsed.content;
+          } catch {}
+        }
+      }
+    }
+  },
 };
 
 /* ===== Conversations ===== */
@@ -146,8 +181,24 @@ export const workflowsApi = {
   get: (input: Record<string, unknown>) => trpcFetch("workflows.get", input),
   create: (input: Record<string, unknown>) => trpcMutate("workflows.create", input),
   update: (input: Record<string, unknown>) => trpcMutate("workflows.update", input),
+  updateNodes: (input: Record<string, unknown>) => trpcMutate("workflows.updateNodes", input),
   runNow: (input: Record<string, unknown>) => trpcMutate("workflows.runNow", input),
+  enqueueRun: (input: Record<string, unknown>) => trpcMutate("workflows.enqueueRun", input),
   runs: (input: Record<string, unknown>) => trpcFetch("workflows.runs", input),
+  runDetail: (input: Record<string, unknown>) => trpcFetch("workflows.runDetail", input),
+  snapshot: (input: Record<string, unknown>) => trpcMutate("workflows.snapshot", input),
+  // V2: Approvals
+  approvals: (input: Record<string, unknown>) => trpcFetch("workflows.approvals", input),
+  approveStep: (input: Record<string, unknown>) => trpcMutate("workflows.approveStep", input),
+  // V2: Resume
+  resumeRun: (input: Record<string, unknown>) => trpcMutate("workflows.resumeRun", input),
+  // V2: Deployments
+  deploy: (input: Record<string, unknown>) => trpcMutate("workflows.deploy", input),
+  deployments: (input: Record<string, unknown>) => trpcFetch("workflows.deployments", input),
+  // V2: Versions
+  versions: (input: Record<string, unknown>) => trpcFetch("workflows.versions", input),
+  // V2: Validate
+  validate: (input: Record<string, unknown>) => trpcFetch("workflows.validate", input),
 };
 
 /* ===== Notifications ===== */
@@ -206,9 +257,14 @@ export const helpdeskApi = {
 /* ===== Channels ===== */
 export const channelsApi = {
   list: (input: Record<string, unknown>) => trpcFetch<any[]>("channels.list", input),
-  configure: (input: Record<string, unknown>) => trpcMutate("channels.configure", input),
-  disable: (input: Record<string, unknown>) => trpcMutate("channels.disable", input),
-  getEmbedCode: (input: Record<string, unknown>) => trpcFetch<{ embedCode: string }>("channels.getEmbedCode", input),
+  get: (input: Record<string, unknown>) => trpcFetch<any>("channels.get", input),
+  configure: (input: Record<string, unknown>) => trpcMutate<{ success: boolean }>("channels.configure", input),
+  disable: (input: Record<string, unknown>) => trpcMutate<{ success: boolean }>("channels.disable", input),
+  getEmbedCode: (input: Record<string, unknown>) => trpcFetch<{ embedCode: string | null; config: Record<string, unknown> } | null>("channels.getEmbedCode", input),
+  send: (input: Record<string, unknown>) => trpcMutate("channels.send", input),
+  configSchema: (input: Record<string, unknown>) => trpcFetch<{ schema: Array<{ key: string; label: string; type: string; required?: boolean; placeholder?: string; options?: Array<{ label: string; value: string }> }> }>("channels.configSchema", input),
+  registry: (input: Record<string, unknown>) => trpcFetch<any>("channels.registry", input),
+  agents: (input: Record<string, unknown>) => trpcFetch<Array<{ id: number; name: string; status: string }>>("channels.agents", input),
 };
 
 /* ===== Outbound ===== */
@@ -220,4 +276,37 @@ export const outboundApi = {
   sendCampaign: (input: Record<string, unknown>) => trpcMutate("outbound.sendCampaign", input),
   deleteCampaign: (input: Record<string, unknown>) => trpcMutate("outbound.deleteCampaign", input),
   campaignStats: (input: Record<string, unknown>) => trpcFetch("outbound.campaignStats", input),
+};
+
+/* ===== Tools ===== */
+export const toolsApi = {
+  list: (input: Record<string, unknown>) => trpcFetch("tools.list", input),
+  get: (input: Record<string, unknown>) => trpcFetch("tools.get", input),
+  create: (input: Record<string, unknown>) => trpcMutate("tools.create", input),
+  update: (input: Record<string, unknown>) => trpcMutate("tools.update", input),
+  delete: (input: Record<string, unknown>) => trpcMutate("tools.delete", input),
+  executions: (input: Record<string, unknown>) => trpcFetch("tools.executions", input),
+};
+
+/* ===== Observability ===== */
+export const observabilityApi = {
+  traces: (input: Record<string, unknown>) => trpcFetch("observability.traces", input),
+  traceDetail: (input: Record<string, unknown>) => trpcFetch("observability.traceDetail", input),
+  agentStats: (input: Record<string, unknown>) => trpcFetch("observability.agentStats", input),
+  costs: (input: Record<string, unknown>) => trpcFetch("observability.costs", input),
+  performance: (input: Record<string, unknown>) => trpcFetch("observability.performance", input),
+  datasets: (input: Record<string, unknown>) => trpcFetch("observability.datasets", input),
+  datasetDetail: (input: Record<string, unknown>) => trpcFetch("observability.datasetDetail", input),
+  createDataset: (input: Record<string, unknown>) => trpcMutate("observability.createDataset", input),
+  addTestCase: (input: Record<string, unknown>) => trpcMutate("observability.addTestCase", input),
+  runEval: (input: Record<string, unknown>) => trpcMutate("observability.runEval", input),
+  evalRuns: (input: Record<string, unknown>) => trpcFetch("observability.evalRuns", input),
+  evalRunDetail: (input: Record<string, unknown>) => trpcFetch("observability.evalRunDetail", input),
+};
+
+/* ===== API Keys ===== */
+export const apiKeysApi = {
+  list: () => trpcFetch<Array<{ id: number; name: string; keyPrefix: string; scopes: string[]; rateLimit: number; expiresAt: string | null; lastUsedAt: string | null; isActive: boolean; createdAt: string }>>("apiKeys.list", {}),
+  create: (input: Record<string, unknown>) => trpcMutate<{ id: number; key: string; keyPrefix: string }>("apiKeys.create", input),
+  revoke: (input: Record<string, unknown>) => trpcMutate<{ success: boolean }>("apiKeys.revoke", input),
 };

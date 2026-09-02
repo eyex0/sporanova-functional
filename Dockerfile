@@ -13,4 +13,4 @@ RUN pnpm run build
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx drizzle-kit push && node dist/index.js"]
+CMD ["node", "dist/index.js"]
