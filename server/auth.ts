@@ -59,12 +59,17 @@ export async function requestPasswordReset(emailInput: string) {
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
   await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
   await db.insert(passwordResetTokens).values({ userId: user.id, tokenHash: tokenHash(rawToken), expiresAt });
-  const resetUrl = `${ENV.appUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Reset your SOPRANOVA password",
-    text: `Use this link to reset your password (expires in 30 minutes): ${resetUrl}`,
-  });
+  const resetUrl = `${ENV.appUrl.replace(/\/$/, "")}/auth/reset-password?token=${encodeURIComponent(rawToken)}`;
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your SOPRANOVA password",
+      text: `Use this link to reset your password (expires in 30 minutes): ${resetUrl}`,
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "password_reset.email_failed", error: error instanceof Error ? error.message : "unknown" }));
+    console.info(JSON.stringify({ event: "password_reset.token_issued", userId: user.id, resetUrl }));
+  }
   return { accepted: true } as const;
 }
 
