@@ -1,5 +1,18 @@
 import { invokeLLM, invokeLLMStream, type InvokeParams, type InvokeResult, type Message, type Tool, type ToolChoice } from "./llm";
 import { ENV } from "./env";
+import { NovaGateway, type NovaMessage, type NovaTool, type NovaContext } from "./nova";
+
+let novaGatewayInstance: NovaGateway | null = null;
+
+export function getNovaGateway(): NovaGateway {
+  if (!novaGatewayInstance) {
+    novaGatewayInstance = new NovaGateway();
+    novaGatewayInstance.initialize().catch(err => {
+      console.error("Failed to initialize NOVA gateway:", err);
+    });
+  }
+  return novaGatewayInstance;
+}
 
 export type { Message, Tool, ToolChoice };
 
@@ -72,6 +85,48 @@ export async function modelGatewayInvoke(request: ModelRequest): Promise<ModelRe
   const startTime = Date.now();
   const model = resolveModel(request.model);
   const provider = resolveProvider();
+
+  // Route to NOVA if model or provider is specified as nova/NOVA
+  if (model.toLowerCase() === 'nova' || provider.toLowerCase() === 'nova') {
+    try {
+      const nova = getNovaGateway();
+      const novaRes = await nova.invoke({
+        messages: request.messages as NovaMessage[],
+        model: request.model !== 'NOVA' && request.model !== 'nova' ? request.model : 'qwen-qwq-32b',
+        tools: request.tools as NovaTool[] | undefined,
+        maxTokens: request.maxTokens,
+        temperature: request.temperature,
+        context: {
+          workspaceId: 'system',
+          agentId: 'system',
+          userId: 'system',
+          permissions: [],
+        },
+      });
+
+      return {
+        id: novaRes.id,
+        model: novaRes.model,
+        provider: 'nova',
+        content: stripThinkingTags(novaRes.content),
+        finishReason: novaRes.finishReason,
+        usage: novaRes.usage ? {
+          promptTokens: novaRes.usage.promptTokens,
+          completionTokens: novaRes.usage.completionTokens,
+          totalTokens: novaRes.usage.totalTokens,
+        } : null,
+        latencyMs: novaRes.latencyMs,
+        toolCalls: novaRes.toolCalls?.map(tc => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments: tc.function.arguments,
+        })),
+      };
+    } catch (err) {
+      console.warn("NOVA gateway invocation failed, falling back to standard LLM:", err);
+      // Fallback to standard invokeLLM below
+    }
+  }
 
   const invokeParams: InvokeParams = {
     messages: request.messages,
