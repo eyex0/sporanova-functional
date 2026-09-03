@@ -319,7 +319,7 @@ async function startServer() {
 </body>
 </html>`);
     } catch (err) {
-      console.error("Help page error:", err);
+      console.error("Help page error:", err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : "");
       res.status(500).send("Internal error");
     }
   });
