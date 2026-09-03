@@ -276,6 +276,13 @@ async function startServer() {
     const workspaceId = Number(req.params.workspaceId);
     if (!workspaceId) return res.status(404).send("Not found");
 
+    // Return basic help page even if database is unavailable
+    const pageTitle = "Help Center";
+    const description = "How can we help you?";
+    const theme = "light";
+    const proto = req.headers["x-forwarded-proto"] ?? req.protocol ?? "https";
+    const host = req.get("host") ?? "sopranova-api.onrender.com";
+
     try {
       const db = await requireDb();
       const { channels: channelsTable, workspaces } = await import("../../drizzle/schema");
@@ -290,10 +297,37 @@ async function startServer() {
       const workspace = (await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1))[0];
 
       const config = (channel?.configuration ?? {}) as Record<string, unknown>;
-      const pageTitle = escapeHtml((config.pageTitle as string) ?? (workspace?.name ? `${workspace.name} Help Center` : "Help Center"));
-      const description = escapeHtml((config.description as string) ?? "How can we help you?");
-      const theme = (config.theme as string) === "dark" ? "dark" : "light";
+      const finalTitle = escapeHtml((config.pageTitle as string) ?? (workspace?.name ? `${workspace.name} Help Center` : pageTitle));
+      const finalDescription = escapeHtml((config.description as string) ?? description);
+      const finalTheme = (config.theme as string) === "dark" ? "dark" : theme;
 
+      res.setHeader("Content-Type", "text/html");
+      res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${finalTitle}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: ${finalTheme === "dark" ? "#111" : "#fdfcfb"}; color: ${finalTheme === "dark" ? "#fff" : "#111"}; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
+    .help-header { text-align: center; max-width: 600px; margin-bottom: 40px; }
+    .help-header h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
+    .help-header p { font-size: 16px; color: ${finalTheme === "dark" ? "#aaa" : "#6b7280"}; line-height: 1.6; }
+    .help-chat { width: 100%; max-width: 600px; flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="help-header">
+    <h1>${finalTitle}</h1>
+    <p>${finalDescription}</p>
+  </div>
+  <div class="help-chat"></div>
+  <script src="${proto}://${host}/embed.js" data-workspace="${workspaceId}" data-channel="widget"></script>
+</body>
+</html>`);
+    } catch (err) {
+      console.error("Help page DB error (returning default):", err instanceof Error ? err.message : String(err));
+      // Still return a basic page even if DB query fails
       res.setHeader("Content-Type", "text/html");
       res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -301,12 +335,10 @@ async function startServer() {
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${pageTitle}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: ${theme === "dark" ? "#111" : "#fdfcfb"}; color: ${theme === "dark" ? "#fff" : "#111"}; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fdfcfb; color: #111; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 48px 24px; }
     .help-header { text-align: center; max-width: 600px; margin-bottom: 40px; }
-    .help-header h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
-    .help-header p { font-size: 16px; color: ${theme === "dark" ? "#aaa" : "#6b7280"}; line-height: 1.6; }
-    .help-chat { width: 100%; max-width: 600px; flex: 1; }
+    .help-header h1 { font-size: 32px; font-weight: 700; margin-bottom: 12px; }
+    .help-header p { font-size: 16px; color: #6b7280; line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -315,12 +347,9 @@ async function startServer() {
     <p>${description}</p>
   </div>
   <div class="help-chat"></div>
-  <script src="${req.protocol}://${req.get("host")}/embed.js" data-workspace="${workspaceId}" data-channel="widget"></script>
+  <script src="${proto}://${host}/embed.js" data-workspace="${workspaceId}" data-channel="widget"></script>
 </body>
 </html>`);
-    } catch (err) {
-      console.error("Help page error:", err instanceof Error ? err.message : String(err), err instanceof Error ? err.stack : "");
-      res.status(500).send("Internal error");
     }
   });
 
