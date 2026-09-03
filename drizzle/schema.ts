@@ -35,6 +35,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  emailVerifiedAt: timestamp("emailVerifiedAt"),
 });
 
 export const authSessions = pgTable(
@@ -61,6 +62,19 @@ export const passwordResetTokens = pgTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("password_reset_tokens_user_idx").on(table.userId), index("password_reset_tokens_expires_idx").on(table.expiresAt)],
+);
+
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("tokenHash", { length: 128 }).notNull().unique(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    usedAt: timestamp("usedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("email_verification_tokens_user_idx").on(table.userId), index("email_verification_tokens_expires_idx").on(table.expiresAt)],
 );
 
 export const oauthAccounts = pgTable(

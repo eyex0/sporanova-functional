@@ -54,6 +54,14 @@ export const authApi = {
   register: (input: { name: string; email: string; password: string; organizationName?: string }) =>
     trpcMutate<Record<string, unknown>>("auth.register", input),
   logout: () => trpcMutate<{ success: boolean }>("auth.logout"),
+  requestPasswordReset: (input: { email: string }) =>
+    trpcMutate<{ accepted: boolean }>("auth.requestPasswordReset", input),
+  resetPassword: (input: { token: string; password: string }) =>
+    trpcMutate<{ success: boolean }>("auth.resetPassword", input),
+  sendVerificationEmail: () =>
+    trpcMutate<{ sent?: boolean; alreadyVerified?: boolean }>("auth.sendVerificationEmail"),
+  verifyEmail: (input: { token: string }) =>
+    trpcMutate<{ success: boolean }>("auth.verifyEmail", input),
 };
 
 /* ===== Workspaces ===== */

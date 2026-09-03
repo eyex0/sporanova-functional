@@ -2,7 +2,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { parse } from "cookie";
-import { authSessions, passwordResetTokens, users, type User } from "../drizzle/schema";
+import { authSessions, emailVerificationTokens, passwordResetTokens, users, type User } from "../drizzle/schema";
 import { requireDb } from "./db";
 import { sendEmail } from "./email";
 import { ENV } from "./_core/env";
@@ -68,7 +68,7 @@ export async function requestPasswordReset(emailInput: string) {
     });
   } catch (error) {
     console.error(JSON.stringify({ event: "password_reset.email_failed", error: error instanceof Error ? error.message : "unknown" }));
-    console.info(JSON.stringify({ event: "password_reset.token_issued", userId: user.id, resetUrl }));
+    console.info(JSON.stringify({ event: "password_reset.token_issued", userId: user.id }));
   }
   return { accepted: true } as const;
 }
@@ -121,4 +121,52 @@ export function sessionCookieOptions(expiresAt?: Date) {
     path: "/",
     ...(expiresAt ? { expires: expiresAt } : { maxAge: 0 }),
   };
+}
+
+export async function sendVerificationEmail(userId: number) {
+  const db = await requireDb();
+  const user = (await db.select().from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!user?.email) throw new Error("User not found or no email address");
+
+  if (user.emailVerifiedAt) return { alreadyVerified: true } as const;
+
+  const rawToken = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+  await db.insert(emailVerificationTokens).values({ userId, tokenHash: tokenHash(rawToken), expiresAt });
+
+  const verifyUrl = `${ENV.appUrl.replace(/\/$/, "")}/auth/verify-email?token=${encodeURIComponent(rawToken)}`;
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your SOPRANOVA email address",
+      text: `Please verify your email by visiting this link (expires in 24 hours): ${verifyUrl}`,
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "email_verification.send_failed", error: error instanceof Error ? error.message : "unknown" }));
+  }
+  return { sent: true } as const;
+}
+
+export async function verifyEmail(rawToken: string) {
+  const db = await requireDb();
+  const record = (
+    await db
+      .select()
+      .from(emailVerificationTokens)
+      .where(
+        and(
+          eq(emailVerificationTokens.tokenHash, tokenHash(rawToken)),
+          gt(emailVerificationTokens.expiresAt, new Date()),
+          isNull(emailVerificationTokens.usedAt),
+        ),
+      )
+      .limit(1)
+  )[0];
+  if (!record) throw new Error("INVALID_VERIFICATION_TOKEN");
+
+  await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, record.userId));
+  await db.update(emailVerificationTokens).set({ usedAt: new Date() }).where(eq(emailVerificationTokens.id, record.id));
+  return { success: true } as const;
 }

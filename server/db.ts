@@ -1,9 +1,10 @@
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, gt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { nanoid } from "nanoid";
 import {
   auditLogs,
+  authSessions,
   memberships,
   organizations,
   userPreferences,
@@ -60,6 +61,20 @@ export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
   return (await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1))[0];
+}
+
+export async function validateSession(token: string) {
+  const db = await requireDb();
+  const { createHash } = await import("node:crypto");
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const result = await db
+    .select({ user: users, session: authSessions })
+    .from(authSessions)
+    .innerJoin(users, eq(authSessions.userId, users.id))
+    .where(and(eq(authSessions.tokenHash, tokenHash), gt(authSessions.expiresAt, new Date())))
+    .limit(1);
+  if (!result[0]) return null;
+  return { user: result[0].user, session: result[0].session };
 }
 
 export async function getActiveMembership(workspaceId: number, userId: number) {

@@ -17,7 +17,12 @@ const connectionInput = z.object({ endpoint: z.string().url().max(2000), headers
 function normalizedName(name: string) { return name.replace(/[\\/\u0000-\u001f]/g, "_").replace(/\s+/g, " ").trim().slice(0, 255); }
 function publicHttpsEndpoint(rawUrl: string) {
   const endpoint = new URL(rawUrl);
-  if (endpoint.protocol !== "https:" || ["localhost", "127.0.0.1", "::1"].includes(endpoint.hostname) || /^(10\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[0-1])\.|192\.168\.)/.test(endpoint.hostname)) throw new TRPCError({ code: "BAD_REQUEST", message: "The data source endpoint must be a public HTTPS URL." });
+  if (endpoint.protocol !== "https:") throw new TRPCError({ code: "BAD_REQUEST", message: "The data source endpoint must be a public HTTPS URL." });
+  const hostname = endpoint.hostname.toLowerCase();
+  const blockedHosts = ["localhost", "127.0.0.1", "::1", "0.0.0.0", "metadata.google.internal", "169.254.169.254"];
+  if (blockedHosts.includes(hostname)) throw new TRPCError({ code: "BAD_REQUEST", message: "The data source endpoint must be a public HTTPS URL." });
+  if (/^(10\.|172\.(1[6-9]|2\d|3[0-1])\.|192\.168\.|fc00:|fe80:|::ffff:127\.)/.test(hostname)) throw new TRPCError({ code: "BAD_REQUEST", message: "The data source endpoint must be a public HTTPS URL." });
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) throw new TRPCError({ code: "BAD_REQUEST", message: "IP address endpoints are not allowed." });
   return endpoint;
 }
 export function mimeMatchesBytes(mimeType: string, bytes: Buffer) { const prefix = bytes.subarray(0, 8).toString("utf8"); if (mimeType === "application/pdf") return prefix.startsWith("%PDF-"); if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") return bytes.subarray(0, 2).toString("utf8") === "PK"; return mimeType === "text/csv" && !bytes.subarray(0, Math.min(bytes.length, 2048)).includes(0); }

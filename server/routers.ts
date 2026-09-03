@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { authenticateWithPassword, createSession, publicUser, registerWithPassword, requestPasswordReset, resetPassword, revokeSession, SESSION_COOKIE, sessionCookieOptions } from "./auth";
+import { authenticateWithPassword, createSession, publicUser, registerWithPassword, requestPasswordReset, resetPassword, revokeSession, sendVerificationEmail, verifyEmail, SESSION_COOKIE, sessionCookieOptions } from "./auth";
 import { bootstrapWorkspace } from "./db";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { agentsRouter } from "./routers/agents";
 import { analyticsRouter } from "./routers/analytics";
 import { auditRouter, notificationsRouter } from "./routers/notifications";
@@ -23,7 +23,7 @@ import { apiKeysRouter } from "./routers/apiKeys";
 
 const credentialsInput = z.object({
   email: z.string().trim().email().max(320),
-  password: z.string().min(12, "Use at least 12 characters.").max(128),
+  password: z.string().min(12, "Use at least 12 characters.").max(128).regex(/[A-Z]/, "Password must contain at least one uppercase letter").regex(/[a-z]/, "Password must contain at least one lowercase letter").regex(/[0-9]/, "Password must contain at least one number"),
 });
 
 export const appRouter = router({
@@ -53,7 +53,7 @@ export const appRouter = router({
       await requestPasswordReset(input.email);
       return { accepted: true } as const;
     }),
-    resetPassword: publicProcedure.input(z.object({ token: z.string().min(20).max(200), password: z.string().min(12).max(128) })).mutation(async ({ input }) => {
+    resetPassword: publicProcedure.input(z.object({ token: z.string().min(20).max(200), password: z.string().min(12).max(128).regex(/[A-Z]/, "Password must contain at least one uppercase letter").regex(/[a-z]/, "Password must contain at least one lowercase letter").regex(/[0-9]/, "Password must contain at least one number") })).mutation(async ({ input }) => {
       try {
         return await resetPassword(input.token, input.password);
       } catch (error) {
@@ -66,6 +66,19 @@ export const appRouter = router({
       await revokeSession(token);
       ctx.res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
       return { success: true } as const;
+    }),
+    sendVerificationEmail: protectedProcedure.mutation(async ({ ctx }) => {
+      return sendVerificationEmail(ctx.user.id);
+    }),
+    verifyEmail: publicProcedure.input(z.object({ token: z.string().min(20).max(200) })).mutation(async ({ input }) => {
+      try {
+        return await verifyEmail(input.token);
+      } catch (error) {
+        if (error instanceof Error && error.message === "INVALID_VERIFICATION_TOKEN") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This verification link is invalid or has expired." });
+        }
+        throw error;
+      }
     }),
   }),
   workspaces: workspacesRouter,

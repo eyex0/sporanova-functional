@@ -78,7 +78,7 @@ export const toolsRouter = router({
       if (patch.handlerConfig !== undefined) updateValues.handlerConfig = patch.handlerConfig;
       if (patch.enabled !== undefined) updateValues.enabled = patch.enabled;
 
-      await db.update(tools).set(updateValues).where(eq(tools.id, toolId));
+      await db.update(tools).set(updateValues).where(and(eq(tools.id, toolId), eq(tools.workspaceId, ctx.workspaceId)));
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "tool.updated", resourceType: "tool", resourceId: toolId });
       return db.select().from(tools).where(eq(tools.id, toolId)).limit(1).then(r => r[0]);
     }),
@@ -90,7 +90,7 @@ export const toolsRouter = router({
       const tool = await db.select().from(tools).where(and(eq(tools.id, input.toolId), eq(tools.workspaceId, ctx.workspaceId), isNull(tools.deletedAt))).limit(1);
       if (!tool.length) throw new TRPCError({ code: "NOT_FOUND", message: "Tool not found." });
 
-      await db.update(tools).set({ deletedAt: new Date() }).where(eq(tools.id, input.toolId));
+      await db.update(tools).set({ deletedAt: new Date() }).where(and(eq(tools.id, input.toolId), eq(tools.workspaceId, ctx.workspaceId)));
       await writeAuditLog({ workspaceId: ctx.workspaceId, actorUserId: ctx.user.id, action: "tool.deleted", resourceType: "tool", resourceId: input.toolId });
       return { success: true };
     }),

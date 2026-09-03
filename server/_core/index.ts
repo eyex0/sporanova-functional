@@ -63,6 +63,11 @@ async function startServer() {
     }),
   );
 
+  app.use((_req, res, next) => {
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()");
+    next();
+  });
+
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ limit: "1mb", extended: false }));
 
@@ -185,6 +190,12 @@ async function startServer() {
       const session = await validateSession(sessionId);
       if (!session) {
         return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const { getActiveMembership } = await import("../db");
+      const membership = await getActiveMembership(workspaceId, session.user.id);
+      if (!membership) {
+        return res.status(403).json({ error: "You do not have access to this workspace" });
       }
 
       const { requireDb } = await import("../db");
