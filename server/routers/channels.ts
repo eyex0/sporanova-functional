@@ -1,10 +1,10 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { channels, agents } from "../../drizzle/schema";
 import { workspaceManagerProcedure, workspaceProcedure } from "../authz";
 import { requireDb, writeAuditLog } from "../db";
-import { router } from "../_core/trpc";
+import { publicProcedure, router } from "../_core/trpc";
 import { sendChannelMessage } from "../_core/channelAdapter";
 import { getChannelAdapter } from "../_core/channelAdapter";
 import { getChannelById, mergeRegistryWithDb, searchChannels, CHANNEL_REGISTRY, type ChannelType } from "../_core/channelRegistry";
@@ -27,7 +27,7 @@ export const channelsRouter = router({
       const dbChannels = await db
         .select()
         .from(channels)
-        .where(and(eq(channels.workspaceId, ctx.workspaceId), isNull(channels.deletedAt)));
+        .where(eq(channels.workspaceId, ctx.workspaceId));
 
       let result = mergeRegistryWithDb(dbChannels);
 
@@ -88,10 +88,10 @@ export const channelsRouter = router({
     }),
 
   /** Get channel registry definition (for config fields, etc.) */
-  registry: workspaceProcedure
-    .input(workspaceInput.extend({ type: channelTypeEnum.optional() }))
+  registry: publicProcedure
+    .input(z.object({ type: channelTypeEnum.optional() }).optional())
     .query(async ({ input }) => {
-      if (input.type) {
+      if (input?.type) {
         const def = getChannelById(input.type as ChannelType);
         return def ?? null;
       }
@@ -328,8 +328,8 @@ export const channelsRouter = router({
     }),
 
   /** Get config schema for a channel type */
-  configSchema: workspaceProcedure
-    .input(workspaceInput.extend({ type: channelTypeEnum }))
+  configSchema: publicProcedure
+    .input(z.object({ type: channelTypeEnum }))
     .query(async ({ input }) => {
       const def = getChannelById(input.type as ChannelType);
       if (!def) return { schema: [] };
