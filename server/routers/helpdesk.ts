@@ -116,6 +116,8 @@ export const helpdeskRouter = router({
 
   addMessage: workspaceMemberProcedure.input(messageInput).mutation(async ({ ctx, input }) => {
     const db = await requireDb();
+    const ticket = (await db.select().from(tickets).where(and(eq(tickets.id, input.ticketId), eq(tickets.workspaceId, ctx.workspaceId))).limit(1))[0];
+    if (!ticket) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found in this workspace." });
     const [row] = await db.insert(ticketMessages).values({
       ticketId: input.ticketId,
       workspaceId: ctx.workspaceId,
@@ -124,7 +126,7 @@ export const helpdeskRouter = router({
       role: input.role,
       content: input.content,
     }).returning();
-    await db.update(tickets).set({ updatedAt: new Date() }).where(eq(tickets.id, input.ticketId));
+    await db.update(tickets).set({ updatedAt: new Date() }).where(and(eq(tickets.id, input.ticketId), eq(tickets.workspaceId, ctx.workspaceId)));
     return row;
   }),
 

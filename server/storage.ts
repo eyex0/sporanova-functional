@@ -24,7 +24,7 @@ function getClient() {
 }
 
 function normalizeKey(value: string) {
-  return value.replace(/^\/+/, "").replace(/\.\./g, "_");
+  return value.replace(/^\/+/, "").replace(/\.\./g, "_").replace(/[\x00-\x1f]/g, "_");
 }
 
 function versionedKey(value: string) {

@@ -19,6 +19,7 @@ const ALLOWED_ORIGINS = (process.env.APP_ORIGIN ?? "http://localhost:3000")
 
 const isOriginAllowed = (origin: string | undefined): boolean => {
   if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes("*") && ALLOWED_ORIGINS.length === 1) return false;
   if (ALLOWED_ORIGINS.includes("*")) return true;
   return ALLOWED_ORIGINS.some((allowed) => allowed === origin);
 };

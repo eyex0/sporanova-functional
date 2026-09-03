@@ -197,7 +197,9 @@ export const observabilityRouter = router({
   datasetDetail: workspaceProcedure
     .input(workspaceInput.extend({ datasetId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      return getDatasetWithCases(input.datasetId);
+      const result = await getDatasetWithCases(input.datasetId);
+      if (!result || result.dataset.workspaceId !== ctx.workspaceId) return null;
+      return result;
     }),
 
   createDataset: workspaceManagerProcedure
