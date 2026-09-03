@@ -4,50 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { channelsApi } from "@/lib/trpc";
 import { ChannelConfigDialog } from "./ChannelConfigDialog";
 import type { ChannelWithState } from "./types";
-import {
-  MessageCircle,
-  FileText,
-  MonitorPlay,
-  Mail,
-  ShoppingBag,
-  Phone,
-  MessageSquare,
-  Instagram,
-  LifeBuoy,
-  Cloud,
-  Hash,
-  Globe,
-  Code,
-  Zap,
-  Smartphone,
-  Search,
-  X,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  ExternalLink,
-} from "lucide-react";
+import { IntegrationIcon, getIntegrationColor } from "@/components/IntegrationIcon";
+import { Search, X, CheckCircle, Clock, AlertCircle, ExternalLink, Zap } from "lucide-react";
 import "./Channels.css";
-
-/* ──────── Icon Map ──────── */
-
-const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
-  MessageCircle,
-  FileText,
-  MonitorPlay,
-  Mail,
-  ShoppingBag,
-  Phone,
-  MessageSquare,
-  Instagram,
-  LifeBuoy,
-  Cloud,
-  Hash,
-  Globe,
-  Code,
-  Zap,
-  Smartphone,
-};
 
 /* ──────── Category Labels ──────── */
 
@@ -87,14 +46,14 @@ function ChannelCard({
   channel: ChannelWithState;
   onConfigure: (ch: ChannelWithState) => void;
 }) {
-  const Icon = ICON_MAP[channel.icon] ?? Code;
   const isComingSoon = channel.status === "coming_soon";
+  const accentColor = channel.accent || getIntegrationColor(channel.id);
 
   return (
     <div className={`ch-card ${isComingSoon ? "ch-card-coming-soon" : ""}`}>
       <div className="ch-card-header">
-        <div className="ch-card-icon" style={{ background: channel.accent + "15", color: channel.accent }}>
-          <Icon size={20} />
+        <div className="ch-card-icon" style={{ background: accentColor + "15", color: accentColor }}>
+          <IntegrationIcon type={channel.id} size={20} />
         </div>
         <div className="ch-card-info">
           <h3>{channel.name}</h3>
