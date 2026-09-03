@@ -253,17 +253,17 @@ export default function Playground() {
 
                   <div className="pg-editor">
                     <div className="pg-toolbar">
-                      <button type="button" aria-label="Bold"><Bold size={14} /></button>
-                      <button type="button" aria-label="Italic"><Italic size={14} /></button>
-                      <button type="button" aria-label="Underline"><Underline size={14} /></button>
+                      <button type="button" aria-label="Bold" disabled title="Formatting tools coming soon"><Bold size={14} /></button>
+                      <button type="button" aria-label="Italic" disabled title="Formatting tools coming soon"><Italic size={14} /></button>
+                      <button type="button" aria-label="Underline" disabled title="Formatting tools coming soon"><Underline size={14} /></button>
                       <span className="pg-toolbar-divider" />
-                      <button type="button" aria-label="List"><List size={14} /></button>
-                      <button type="button" aria-label="Ordered list"><ListOrdered size={14} /></button>
+                      <button type="button" aria-label="List" disabled title="Formatting tools coming soon"><List size={14} /></button>
+                      <button type="button" aria-label="Ordered list" disabled title="Formatting tools coming soon"><ListOrdered size={14} /></button>
                       <span className="pg-toolbar-spacer" />
-                      <button type="button" aria-label="Text"><Type size={14} /></button>
-                      <button type="button" aria-label="Image"><ImageIcon size={14} /></button>
-                      <button type="button" aria-label="Link"><LinkIcon size={14} /></button>
-                      <button type="button" aria-label="Maximize"><Maximize2 size={14} /></button>
+                      <button type="button" aria-label="Text" disabled title="Formatting tools coming soon"><Type size={14} /></button>
+                      <button type="button" aria-label="Image" disabled title="Formatting tools coming soon"><ImageIcon size={14} /></button>
+                      <button type="button" aria-label="Link" disabled title="Formatting tools coming soon"><LinkIcon size={14} /></button>
+                      <button type="button" aria-label="Maximize" disabled title="Formatting tools coming soon"><Maximize2 size={14} /></button>
                     </div>
                     <textarea
                       className="pg-textarea"
@@ -363,7 +363,7 @@ export default function Playground() {
                 disabled={!activeAgent}
               />
               <div className="pg-widget-actions">
-                <button className="pg-widget-mic" aria-label="Start dictation" type="button">
+                <button className="pg-widget-mic" aria-label="Start dictation" type="button" disabled title="Voice dictation coming soon">
                   <Mic size={16} />
                 </button>
                 <button

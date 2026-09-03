@@ -848,6 +848,15 @@
   background: var(--cobalt-deep);
   transform: translateY(-1px);
 }
+.hd-cta-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+.hd-cta-primary:disabled:hover {
+  background: var(--cobalt);
+  transform: none;
+}
 .hd-cta-secondary {
   display: inline-flex;
   align-items: center;
@@ -863,6 +872,14 @@
 .hd-cta-secondary:hover {
   border-color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.08);
+}
+.hd-cta-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.hd-cta-secondary:disabled:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: transparent;
 }
 
 /* Responsive */

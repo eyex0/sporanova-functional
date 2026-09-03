@@ -408,8 +408,8 @@ export default function HaierDemo() {
               </div>
 
               <div className="hd-chat-input">
-                <input placeholder="Type a message..." disabled />
-                <button disabled>
+                <input placeholder="Simulation only — type in Playground to chat" disabled />
+                <button disabled title="Use Playground for live chat">
                   <SendHorizontal size={16} />
                 </button>
               </div>
@@ -608,10 +608,10 @@ export default function HaierDemo() {
             would be customized to Haier Europe's specific systems, brand guidelines, and market requirements.
           </p>
           <div className="hd-cta-actions">
-            <button className="hd-cta-primary">
+            <button className="hd-cta-primary" disabled title="Coming soon">
               Schedule a technical deep-dive <ArrowRight size={15} />
             </button>
-            <button className="hd-cta-secondary">
+            <button className="hd-cta-secondary" disabled title="Coming soon">
               Download integration spec <ArrowUpRight size={14} />
             </button>
           </div>

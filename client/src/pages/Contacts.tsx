@@ -89,9 +89,9 @@ export default function Contacts() {
           <button className="sp-btn sp-btn--secondary" onClick={handleExport}>
             <Download size={14} /> Export
           </button>
-          <button className="sp-btn sp-btn--secondary" onClick={() => toast.info("CSV import coming soon")}>
-            <Upload size={14} /> Import
-          </button>
+          <span className="sp-coming-soon-badge">
+            <Upload size={14} /> Import (CSV)
+          </span>
           <button className="sp-btn sp-btn--primary" onClick={() => setShowAdd(true)}>
             <Plus size={14} /> Add contact
           </button>

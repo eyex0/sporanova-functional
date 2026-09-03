@@ -295,7 +295,7 @@ export default function Settings() {
                   <h3>Password</h3>
                   <p>Last changed: never (set during registration)</p>
                 </div>
-                <button className="btn-secondary" onClick={() => toast.info("Use 'Forgot password' on the sign-in page to change your password.")}>Change password</button>
+                <span className="sp-coming-soon-badge">Coming Soon</span>
               </div>
 
               <div className="security-info-card">
@@ -303,7 +303,7 @@ export default function Settings() {
                   <h3>Two-Factor Authentication</h3>
                   <p>Add an extra layer of security to your account</p>
                 </div>
-                <button className="btn-secondary" onClick={() => toast.info("2FA coming soon")}>Enable 2FA</button>
+                <span className="sp-coming-soon-badge">Coming Soon</span>
               </div>
 
               <div className="security-info-card">
@@ -311,24 +311,13 @@ export default function Settings() {
                   <h3>Active Sessions</h3>
                   <p>Manage devices currently signed in to your account</p>
                 </div>
-                <button className="btn-secondary" onClick={() => toast.info("Session management coming soon")}>View sessions</button>
+                <span className="sp-coming-soon-badge">Coming Soon</span>
               </div>
 
               <div className="security-danger-zone">
                 <h3><AlertTriangle size={16} /> Danger Zone</h3>
                 <p>Once you delete your account, there is no going back.</p>
-                {!showDeleteConfirm ? (
-                  <button className="btn-danger" onClick={() => setShowDeleteConfirm(true)}>Delete account</button>
-                ) : (
-                  <div className="confirm-delete">
-                    <p>Are you absolutely sure? Type your email to confirm.</p>
-                    <input type="email" placeholder={user?.email ?? "your@email.com"} id="delete-confirm" />
-                    <div className="confirm-delete-actions">
-                      <button className="btn-secondary" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-                      <button className="btn-danger" onClick={() => toast.error("Account deletion is disabled in this preview")}>Confirm delete</button>
-                    </div>
-                  </div>
-                )}
+                <span className="sp-coming-soon-badge">Coming Soon</span>
               </div>
             </div>
           )}
