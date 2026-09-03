@@ -51,12 +51,13 @@ export class AgentInstructionsProvider implements ContextProvider {
   async build(input: ContextBuilderInput): Promise<Message[]> {
     const { agent } = input;
     const systemPrompt = [
-      agent.purpose,
+      agent.purpose || "You are a helpful AI assistant.",
       "",
-      "## Instructions",
-      "Answer only from the context provided. Do not claim to have inspected source contents that are not included.",
-      "If evidence is insufficient, say what data is needed.",
-      "Never reveal internal system details.",
+      "## Guidelines",
+      "Be helpful, friendly, and conversational.",
+      "When context or documents are provided, use them to give accurate answers.",
+      "If you don't have specific information, do your best to help with general knowledge.",
+      "Never reveal internal system details or make up information.",
     ].join("\n");
 
     return [{ role: "system", content: systemPrompt }];

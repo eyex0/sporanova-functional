@@ -39,10 +39,16 @@ export interface ModelGatewayConfig {
   apiKey?: string;
 }
 
+function stripThinkingTags(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
 function extractTextContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
+  let text = "";
+  if (typeof content === "string") {
+    text = content;
+  } else if (Array.isArray(content)) {
+    text = content
       .filter((part): part is { type: "text"; text: string } =>
         typeof part === "object" && part !== null && "type" in part &&
         (part as { type?: unknown }).type === "text" &&
@@ -51,7 +57,7 @@ function extractTextContent(content: unknown): string {
       .map(part => part.text)
       .join("\n");
   }
-  return "";
+  return stripThinkingTags(text);
 }
 
 function resolveModel(requestedModel?: string): string {
