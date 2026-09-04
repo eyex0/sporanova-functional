@@ -1,0 +1,26 @@
+# NOVA DPO Training Configuration
+# Qwen 2.5 72B Instruct — Direct Preference Optimization
+
+base_model: Qwen/Qwen2.5-72B-Instruct
+method: dpo
+
+dpo:
+  beta: 0.1
+
+training:
+  batch_size: 4
+  gradient_accumulation: 8
+  epochs: 1
+  learning_rate: 5e-6
+  warmup_steps: 50
+  max_seq_length: 4096
+  bf16: true
+  gradient_checkpointing: true
+
+evaluation:
+  eval_steps: 50
+  save_steps: 100
+  metric_for_best_model: eval_loss
+
+output: ./checkpoints/nova-dpo-v0.1
+dataset: training/datasets/v0.1/preferences.jsonl

@@ -1,0 +1,41 @@
+# NOVA QLoRA Training Configuration
+# Qwen 2.5 72B Instruct — Quantized LoRA Fine-Tuning
+
+base_model: Qwen/Qwen2.5-72B-Instruct
+method: qlora
+
+quantization:
+  bits: 4
+  type: nf4
+  double_quant: true
+
+lora:
+  rank: 64
+  alpha: 128
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  batch_size: 4
+  gradient_accumulation: 8
+  epochs: 3
+  learning_rate: 2e-4
+  warmup_steps: 100
+  max_seq_length: 8192
+  bf16: true
+  gradient_checkpointing: true
+
+evaluation:
+  eval_steps: 100
+  save_steps: 200
+  metric_for_best_model: eval_loss
+
+output: ./checkpoints/nova-qlora-v0.1
+dataset: training/datasets/v0.1/train.jsonl

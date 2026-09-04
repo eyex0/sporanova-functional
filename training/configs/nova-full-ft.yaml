@@ -1,0 +1,26 @@
+# NOVA Full Fine-Tuning Configuration
+# Qwen 2.5 72B Instruct — Full Parameter Fine-Tuning with DeepSpeed ZeRO-3
+
+base_model: Qwen/Qwen2.5-72B-Instruct
+method: full_ft
+
+training:
+  batch_size: 8
+  gradient_accumulation: 1
+  epochs: 2
+  learning_rate: 1e-5
+  warmup_steps: 100
+  max_seq_length: 8192
+  bf16: true
+  gradient_checkpointing: true
+
+deepspeed:
+  stage: 3
+
+evaluation:
+  eval_steps: 100
+  save_steps: 200
+  metric_for_best_model: eval_loss
+
+output: ./checkpoints/nova-full-ft-v0.1
+dataset: training/datasets/v0.1/train.jsonl
