@@ -102,7 +102,7 @@ export class NovaProvenanceTracker {
    * Save provenance record to disk.
    */
   save(record: ProvenanceRecord, filePath: string): void {
-    const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+    const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

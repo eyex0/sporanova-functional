@@ -69,14 +69,27 @@ def main():
     )
     from trl import SFTTrainer
 
-    # Read the config (kept as a JSON dump for portability in this stub;
-    # real configs can be YAML via pyyaml).
+    # Read the YAML config properly.
     config_path = Path(args.config)
     if not config_path.exists():
         print(f"Config not found: {config_path}", file=sys.stderr)
         sys.exit(2)
-    with open(config_path, "r", encoding="utf-8") as fh:
-        cfg = json.loads(fh.read().split("# YAML config")[0]) if "# YAML config" in fh.read() else json.load(fh)
+
+    try:
+        import yaml
+        with open(config_path, "r", encoding="utf-8") as fh:
+            cfg = yaml.safe_load(fh)
+    except ImportError:
+        # Fallback: parse a simplified JSON-friendly subset
+        with open(config_path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+        # Strip YAML comments and convert to JSON-ish
+        lines = []
+        for line in content.split("\n"):
+            stripped = line.split("#")[0].rstrip()
+            if stripped:
+                lines.append(stripped)
+        cfg = json.loads("\n".join(lines)) if lines else {}
 
     base_model = cfg.get("base_model", "Qwen/Qwen2.5-72B-Instruct")
 
@@ -165,13 +178,33 @@ def main():
         save_safetensors=True,
     )
 
+    # Format dataset using chat template or fallback text formatting
+    sys_prompt = cfg.get("system_prompt", "You are NOVA, the primary intelligence layer powering SOPRANOVA agents.")
+
+    def format_prompts(example):
+        msgs = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": example["instruction"]},
+        ]
+        if example.get("context"):
+            msgs[1]["content"] = "Context: " + example["context"] + "\n\n" + example["instruction"]
+        if example.get("final_answer"):
+            msgs.append({"role": "assistant", "content": example["final_answer"]})
+        try:
+            return tokenizer.apply_chat_template(msgs, tokenize=False, add_generation_prompt=False)
+        except Exception:
+            text = f"<|im_start|>system\n{sys_prompt}<|im_end|>\n<|im_start|>user\n{msgs[1]['content']}<|im_end|>\n"
+            if example.get("final_answer"):
+                text += f"<|im_start|>assistant\n{example['final_answer']}<|im_end|>\n"
+            return text
+
     trainer = SFTTrainer(
         model=model,
         args=sft_args,
         train_dataset=train_ds,
         eval_dataset=val_ds,
-        tokenizer=tokenizer,
-        dataset_text_field="instruction",
+        processing_class=tokenizer,
+        formatting_func=format_prompts,
         max_seq_length=int(training.get("max_seq_length", 4096)),
         packing=False,
     )
