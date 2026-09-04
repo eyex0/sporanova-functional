@@ -1,0 +1,396 @@
+# NOVA External Training Contract
+# This document defines the EXACT procedure for training NOVA externally.
+# NO training is executed from this repository. All GPU work is external.
+
+contract_version: "1.0.0"
+last_updated: "2026-09-04"
+status: "READY_FOR_EXTERNAL_TRAINING"
+
+# ═══════════════════════════════════════════════════════════════════
+# 1. REQUIRED GPU
+# ═══════════════════════════════════════════════════════════════════
+gpu_requirements:
+  minimum:
+    gpu: "NVIDIA A100 80GB"
+    count: 1
+    vram: "80GB"
+    cuda_version: ">=12.1"
+  recommended:
+    gpu: "NVIDIA H100 80GB"
+    count: 1
+    vram: "80GB"
+    cuda_version: ">=12.4"
+  cloud_options:
+    - provider: "AWS"
+      instance: "p4d.24xlarge (8x A100 40GB) or p5.48xlarge (8x H100)"
+    - provider: "GCP"
+      instance: "a2-ultragpu-1g (1x A100 80GB)"
+    - provider: "Azure"
+      instance: "Standard_ND96isr_H100_v5 (1x H100)"
+    - provider: "Lambda Labs"
+      instance: "1x A100 80GB (~$1.20/hr spot)"
+
+# ═══════════════════════════════════════════════════════════════════
+# 2. CUDA / PYTORCH ASSUMPTIONS
+# ═══════════════════════════════════════════════════════════════════
+environment:
+  python: ">=3.11, <3.13"
+  pytorch: ">=2.4.0"
+  cuda: ">=12.1"
+  transformers: ">=4.46.0"
+  peft: ">=0.14.0"
+  trl: ">=0.12.0"
+  bitsandbytes: ">=0.45.0"
+  os: "Ubuntu 22.04 LTS"
+  install_command: "pip install -r training/requirements.txt"
+
+# ═══════════════════════════════════════════════════════════════════
+# 3. MODEL IDENTIFIER
+# ═══════════════════════════════════════════════════════════════════
+model:
+  base_model: "Qwen/Qwen2.5-72B-Instruct"
+  model_type: "CausalLM"
+  architecture: "Qwen2ForCausalLM"
+  license: "Apache 2.0"
+  parameters: "72B"
+  quantization: "4-bit NF4 (QLoRA)"
+
+# ═══════════════════════════════════════════════════════════════════
+# 4. DATASET INPUT FORMAT
+# ═══════════════════════════════════════════════════════════════════
+dataset_input:
+  format: "JSONL"
+  files:
+    - path: "training/datasets/v0.1/train.jsonl"
+      purpose: "SFT training"
+    - path: "training/datasets/v0.1/validation.jsonl"
+      purpose: "SFT evaluation"
+    - path: "training/datasets/v0.1/test.jsonl"
+      purpose: "Final evaluation"
+    - path: "training/datasets/v0.1/manifest.json"
+      purpose: "Dataset provenance"
+  jsonl_schema:
+    type: "object"
+    required_fields:
+      - name: "id"
+        type: "string"
+        description: "Unique example identifier"
+      - name: "instruction"
+        type: "string"
+        description: "User instruction/prompt"
+      - name: "final_answer"
+        type: "string"
+        description: "Expected assistant response"
+      - name: "category"
+        type: "string"
+        description: "Task category"
+      - name: "language"
+        type: "string"
+        enum: ["ar", "en", "mixed"]
+    optional_fields:
+      - name: "context"
+        type: "string"
+      - name: "tools"
+        type: "array"
+      - name: "trajectory"
+        type: "array"
+      - name: "difficulty"
+        type: "string"
+        enum: ["easy", "medium", "hard", "expert"]
+      - name: "quality_score"
+        type: "number"
+
+# ═══════════════════════════════════════════════════════════════════
+# 5. EXPECTED DIRECTORY STRUCTURE
+# ═══════════════════════════════════════════════════════════════════
+directory_structure:
+  before_training: |
+    sopranova-functional/
+    ├── training/
+    │   ├── configs/
+    │   │   ├── nova-qlora.yaml
+    │   │   ├── nova-dpo.yaml
+    │   │   ├── nova-lora.yaml
+    │   │   └── nova-full-ft.yaml
+    │   ├── datasets/
+    │   │   └── v0.1/
+    │   │       ├── train.jsonl
+    │   │       ├── validation.jsonl
+    │   │       ├── test.jsonl
+    │   │       └── manifest.json
+    │   ├── requirements.txt
+    │   └── types.ts
+    └── checkpoints/           (created by training)
+  after_training: |
+    sopranova-functional/
+    ├── checkpoints/
+    │   └── nova-qlora-v0.1/
+    │       ├── checkpoint-200/
+    │       │   ├── adapter_model.safetensors
+    │       │   ├── adapter_config.json
+    │       │   ├── training_args.bin
+    │       │   ├── trainer_state.json
+    │       │   ├── optimizer.pt
+    │       │   └── scheduler.pt
+    │       ├── checkpoint-400/
+    │       │   └── ...
+    │       ├── checkpoint-600/          (final)
+    │       │   ├── adapter_model.safetensors
+    │       │   ├── adapter_config.json
+    │       │   ├── training_args.bin
+    │       │   ├── trainer_state.json
+    │       │   └── tokenizer/
+    │       ├── tokenizer/
+    │       │   ├── tokenizer.json
+    │       │   ├── tokenizer_config.json
+    │       │   └── special_tokens_map.json
+    │       ├── training_config.yaml     (copy of nova-qlora.yaml)
+    │       ├── dataset_manifest.json    (copy of manifest.json)
+    │       └── run_metadata.json        (training run metadata)
+
+# ═══════════════════════════════════════════════════════════════════
+# 6. ENVIRONMENT VARIABLES
+# ═══════════════════════════════════════════════════════════════════
+environment_variables:
+  required: []
+  optional:
+    - name: "HF_TOKEN"
+      description: "HuggingFace token for model download (if gated)"
+      required: false
+    - name: "WANDB_API_KEY"
+      description: "Weights & Biases API key for logging"
+      required: false
+    - name: "NOVA_SEED"
+      description: "Random seed for reproducibility (default: 42)"
+      default: "42"
+
+# ═══════════════════════════════════════════════════════════════════
+# 7. TRAINING COMMAND / TEMPLATE
+# ═══════════════════════════════════════════════════════════════════
+training_commands:
+  step_1_install: |
+    pip install -r training/requirements.txt
+  
+  step_2_generate_dataset: |
+    # This runs in the repo, no GPU needed
+    npx tsx training/scripts/generate_dataset.ts 10 training/datasets/v0.1
+  
+  step_3_run_qlora: |
+    # MUST be run on GPU machine with the repo cloned
+    python -c "
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    from trl import SFTTrainer, SFTConfig
+    import json, yaml
+
+    # Load config
+    with open('training/configs/nova-qlora.yaml') as f:
+        config = yaml.safe_load(f)
+
+    # Load tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        config['base_model'],
+        trust_remote_code=config['tokenizer']['trust_remote_code'],
+        padding_side=config['tokenizer']['padding_side'],
+    )
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # Load model with quantization
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type=config['quantization']['type'],
+        bnb_4bit_use_double_quant=config['quantization']['double_quant'],
+        bnb_4bit_compute_dtype=config['training']['bf16'] and 'bfloat16' or 'float16',
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        config['base_model'],
+        quantization_config=bnb_config,
+        device_map='auto',
+    )
+    model = prepare_model_for_kbit_training(model)
+
+    # Apply LoRA
+    lora_config = LoraConfig(
+        r=config['lora']['rank'],
+        lora_alpha=config['lora']['alpha'],
+        lora_dropout=config['lora']['dropout'],
+        target_modules=config['lora']['target_modules'],
+        bias=config['lora'].get('bias', 'none'),
+        task_type=config['lora'].get('task_type', 'CAUSAL_LM'),
+    )
+    model = get_peft_model(model, lora_config)
+
+    # Load dataset
+    def load_jsonl(path):
+        with open(path) as f:
+            return [json.loads(line) for line in f]
+
+    train_data = load_jsonl(config['dataset']['train'])
+    val_data = load_jsonl(config['dataset']['validation'])
+
+    # Convert to ChatML format
+    def format_example(example):
+        messages = [
+            {'role': 'system', 'content': config['system_prompt'].strip()},
+            {'role': 'user', 'content': example['instruction']},
+            {'role': 'assistant', 'content': example['final_answer']},
+        ]
+        return tokenizer.apply_chat_template(messages, tokenize=False)
+
+    train_dataset = [{'text': format_example(ex)} for ex in train_data]
+    val_dataset = [{'text': format_example(ex)} for ex in val_data]
+
+    # Training
+    training_config = SFTConfig(
+        output_dir=config['output'],
+        num_train_epochs=config['training']['epochs'],
+        per_device_train_batch_size=config['training']['batch_size'],
+        gradient_accumulation_steps=config['training']['gradient_accumulation'],
+        learning_rate=config['training']['learning_rate'],
+        lr_scheduler_type=config['training'].get('lr_scheduler_type', 'cosine'),
+        warmup_steps=config['training']['warmup_steps'],
+        max_seq_length=config['training']['max_seq_length'],
+        bf16=config['training']['bf16'],
+        gradient_checkpointing=config['training']['gradient_checkpointing'],
+        logging_steps=config['training'].get('logging_steps', 10),
+        eval_strategy=config['evaluation']['evaluation_strategy'],
+        eval_steps=config['evaluation']['eval_steps'],
+        save_steps=config['evaluation']['save_steps'],
+        save_total_limit=config['evaluation']['save_total_limit'],
+        seed=config['training'].get('seed', 42),
+        report_to=config['training'].get('report_to', 'none'),
+    )
+
+    trainer = SFTTrainer(
+        model=model,
+        args=training_config,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+        processing_class=tokenizer,
+    )
+
+    trainer.train()
+    trainer.save_model(config['output'])
+    tokenizer.save_pretrained(config['output'])
+    "
+
+  step_4_evaluate: |
+    # Run evaluation on the trained checkpoint
+    npx tsx training/scripts/evaluate_checkpoint.ts \
+      --checkpoint ./checkpoints/nova-qlora-v0.1 \
+      --base-model Qwen/Qwen2.5-72B-Instruct \
+      --output ./evaluation/results/
+
+  step_5_register: |
+    # Register the model in the registry (DO NOT auto-promote)
+    npx tsx training/scripts/register_model.ts \
+      nova v0.5 Qwen/Qwen2.5-72B-Instruct qlora v0.1 \
+      ./checkpoints/nova-qlora-v0.1 \
+      ./training/registry/registry.json
+
+# ═══════════════════════════════════════════════════════════════════
+# 8. CHECKPOINT OUTPUT FORMAT
+# ═══════════════════════════════════════════════════════════════════
+checkpoint_output:
+  naming: "checkpoint-{step}"
+  required_files:
+    - "adapter_model.safetensors"
+    - "adapter_config.json"
+  recommended_files:
+    - "training_args.bin"
+    - "trainer_state.json"
+    - "optimizer.pt"
+    - "scheduler.pt"
+  tokenizer_files:
+    - "tokenizer.json"
+    - "tokenizer_config.json"
+    - "special_tokens_map.json"
+
+# ═══════════════════════════════════════════════════════════════════
+# 9. EVALUATION COMMAND
+# ═══════════════════════════════════════════════════════════════════
+evaluation_command: |
+  # Validate checkpoint first
+  npx tsx -e "
+    import { NovaCheckpointValidator } from './training/registry/checkpoint_validator';
+    const v = new NovaCheckpointValidator();
+    const r = v.validate('./checkpoints/nova-qlora-v0.1');
+    console.log(JSON.stringify(r, null, 2));
+  "
+  
+  # Run evaluation harness
+  npx tsx -e "
+    import { NovaEvalHarness } from './training/evaluation/eval_harness';
+    const h = new NovaEvalHarness();
+    const spec = h.prepareEvaluation({
+      checkpoint_path: './checkpoints/nova-qlora-v0.1',
+      base_model: 'Qwen/Qwen2.5-72B-Instruct',
+    });
+    console.log(JSON.stringify(spec, null, 2));
+  "
+
+# ═══════════════════════════════════════════════════════════════════
+# 10. REGISTRATION COMMAND
+# ═══════════════════════════════════════════════════════════════════
+registration_command: |
+  npx tsx training/scripts/register_model.ts \
+    nova v0.5 Qwen/Qwen2.5-72B-Instruct qlora v0.1 \
+    ./checkpoints/nova-qlora-v0.1 \
+    ./training/registry/registry.json
+
+# ═══════════════════════════════════════════════════════════════════
+# 11. PROMOTION REQUIREMENTS
+# ═══════════════════════════════════════════════════════════════════
+promotion_gates:
+  train_to_evaluation:
+    - "Training completed successfully"
+    - "No NaN loss during training"
+    - "Final eval_loss < 2.0"
+  evaluation_to_candidate:
+    - "Checkpoint validated (all required files present)"
+    - "Evaluation metrics recorded in registry"
+    - "Overall accuracy > 0.80 on benchmark suite"
+    - "No regression > 5pp on any single category vs base model"
+  candidate_to_approved:
+    - "Human review of 20+ sample outputs"
+    - "No safety violations in outputs"
+    - "Arabic and English responses verified"
+    - "Tool calling outputs validated"
+    - "Signed off by MONTASER ABDALLA, FOUNDER & CEO"
+  approved_to_production:
+    - "All above gates passed"
+    - "No other model currently in PRODUCTION (or current model deprecated first)"
+    - "Manual promotion via registry.promote()"
+
+# ═══════════════════════════════════════════════════════════════════
+# 12. ROLLBACK PROCEDURE
+# ═══════════════════════════════════════════════════════════════════
+rollback:
+  trigger_conditions:
+    - "Model produces harmful or unsafe outputs"
+    - "Model accuracy drops > 10pp from base model"
+    - "Model fails to handle tool calling correctly"
+    - "Arabic language quality degrades"
+  procedure:
+    - "1. Deprecate current PRODUCTION model: registry.deprecate(modelId)"
+    - "2. Previous PRODUCTION model remains active"
+    - "3. If no previous model, route to foundation model provider"
+    - "4. NOVA runtime automatically falls back to Groq/OpenAI"
+    - "5. Investigate root cause before attempting new training"
+  automatic_fallback: "NOVA runtime falls back to foundation model if no PRODUCTION model exists"
+
+# ═══════════════════════════════════════════════════════════════════
+# 13. SAFETY CONSTRAINTS
+# ═══════════════════════════════════════════════════════════════════
+safety:
+  never_train_on:
+    - "Raw user conversations"
+    - "Unanonymized PII"
+    - "Production system logs with user data"
+    - "API keys, secrets, or credentials"
+  always_verify:
+    - "is_synthetic flag on all training examples"
+    - "PII scrubbing confirmed on continuous learning data"
+    - "No data leakage in checkpoint artifacts"
+    - "Content hash matches provenance record"

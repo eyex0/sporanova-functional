@@ -111,6 +111,44 @@ export interface NovaModelRecord {
   notes?: string;
 }
 
+// Provenance Types
+export interface ProvenanceRecord {
+  dataset_id: string;
+  version: string;
+  content_sha256: string;
+  example_count: number;
+  generator_version: string;
+  filter_version: string;
+  random_seed: number | null;
+  created_at: string;
+  file_hashes: Record<string, string>;
+}
+
+// DPO Types
+export interface DPOPreferencePair {
+  prompt: string;
+  chosen: string;
+  rejected: string;
+  category: string;
+  difficulty: string;
+  language: string;
+  metadata?: Record<string, any>;
+}
+
+// Checkpoint Validation Types
+export interface CheckpointValidationResult {
+  valid: boolean;
+  checkpoint_path: string;
+  errors: string[];
+  warnings: string[];
+  artifacts: string[];
+  adapter_exists: boolean;
+  tokenizer_exists: boolean;
+  config_exists: boolean;
+  adapter_size_bytes: number;
+  sha256?: string;
+}
+
 // Continuous Learning Types
 export interface ContinuousCandidate {
   id: string;
