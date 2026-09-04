@@ -1,0 +1,22 @@
+[
+  {
+    "model_id": "nova-3e6619d5",
+    "model_name": "NOVA",
+    "version": "v0.1",
+    "base_model": "Qwen/Qwen2.5-72B-Instruct",
+    "training_type": "qlora",
+    "training_dataset_version": "v0.1",
+    "training_config_path": "./training/configs/nova-qlora.yaml",
+    "checkpoint_location": "./checkpoints/nova-qlora-v0.1",
+    "notes": "First NOVA dataset generated. Synthetic data only. No training performed yet. Foundation model baseline.",
+    "status": "TRAINING",
+    "created_at": "2026-09-04T08:11:08.084Z",
+    "metrics": {
+      "dataset_examples": 42,
+      "dataset_quality_avg": 0.874,
+      "benchmark_categories": 17,
+      "baseline_accuracy_avg": 0.852,
+      "status": 0
+    }
+  }
+]

@@ -1,0 +1,637 @@
+{
+  "base_model": "Qwen/Qwen2.5-72B-Instruct",
+  "nova_versions": [
+    "NOVA-v0.1 (synthetic)"
+  ],
+  "benchmarks": [
+    {
+      "benchmark": "general_reasoning",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "general_reasoning",
+          "accuracy": 0.831,
+          "latency_ms": 402,
+          "tokens": 1356,
+          "errors": 0,
+          "score": 0.818,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 6,
+            "passed": 6
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "general_reasoning",
+          "accuracy": 0.807,
+          "latency_ms": 372,
+          "tokens": 1980,
+          "errors": 0,
+          "score": 0.81,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 6,
+            "passed": 6
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "agent_reasoning",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "agent_reasoning",
+          "accuracy": 0.759,
+          "latency_ms": 585,
+          "tokens": 2980,
+          "errors": 0,
+          "score": 0.738,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "agent_reasoning",
+          "accuracy": 0.782,
+          "latency_ms": 401,
+          "tokens": 1050,
+          "errors": 0,
+          "score": 0.789,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "tool_calling",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "tool_calling",
+          "accuracy": 0.851,
+          "latency_ms": 482,
+          "tokens": 1040,
+          "errors": 0,
+          "score": 0.814,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "tool_calling",
+          "accuracy": 0.861,
+          "latency_ms": 398,
+          "tokens": 1350,
+          "errors": 0,
+          "score": 0.837,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "tool_recovery",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "tool_recovery",
+          "accuracy": 0.771,
+          "latency_ms": 468,
+          "tokens": 1550,
+          "errors": 0,
+          "score": 0.769,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "tool_recovery",
+          "accuracy": 0.733,
+          "latency_ms": 346,
+          "tokens": 1160,
+          "errors": 0,
+          "score": 0.771,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "arabic",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "arabic",
+          "accuracy": 0.851,
+          "latency_ms": 537,
+          "tokens": 1555,
+          "errors": 0,
+          "score": 0.803,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "arabic",
+          "accuracy": 0.854,
+          "latency_ms": 611,
+          "tokens": 1610,
+          "errors": 0,
+          "score": 0.79,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "english",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "english",
+          "accuracy": 0.923,
+          "latency_ms": 274,
+          "tokens": 1200,
+          "errors": 0,
+          "score": 0.899,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "english",
+          "accuracy": 0.892,
+          "latency_ms": 422,
+          "tokens": 780,
+          "errors": 0,
+          "score": 0.851,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "mixed_arabic_english",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "mixed_arabic_english",
+          "accuracy": 0.828,
+          "latency_ms": 486,
+          "tokens": 1735,
+          "errors": 0,
+          "score": 0.8,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "mixed_arabic_english",
+          "accuracy": 0.809,
+          "latency_ms": 482,
+          "tokens": 1470,
+          "errors": 0,
+          "score": 0.789,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "coding",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "coding",
+          "accuracy": 0.805,
+          "latency_ms": 613,
+          "tokens": 1730,
+          "errors": 0,
+          "score": 0.76,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "coding",
+          "accuracy": 0.773,
+          "latency_ms": 368,
+          "tokens": 3775,
+          "errors": 0,
+          "score": 0.79,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "sql",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "sql",
+          "accuracy": 0.843,
+          "latency_ms": 360,
+          "tokens": 2695,
+          "errors": 0,
+          "score": 0.834,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "sql",
+          "accuracy": 0.836,
+          "latency_ms": 393,
+          "tokens": 1220,
+          "errors": 0,
+          "score": 0.823,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "rag",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "rag",
+          "accuracy": 0.856,
+          "latency_ms": 566,
+          "tokens": 660,
+          "errors": 0,
+          "score": 0.8,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "rag",
+          "accuracy": 0.867,
+          "latency_ms": 337,
+          "tokens": 1910,
+          "errors": 0,
+          "score": 0.853,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "memory",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "memory",
+          "accuracy": 0.873,
+          "latency_ms": 272,
+          "tokens": 1175,
+          "errors": 0,
+          "score": 0.869,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "memory",
+          "accuracy": 0.883,
+          "latency_ms": 315,
+          "tokens": 920,
+          "errors": 0,
+          "score": 0.867,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "workflow",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "workflow",
+          "accuracy": 0.825,
+          "latency_ms": 442,
+          "tokens": 1560,
+          "errors": 0,
+          "score": 0.807,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "workflow",
+          "accuracy": 0.809,
+          "latency_ms": 538,
+          "tokens": 900,
+          "errors": 0,
+          "score": 0.778,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "safety",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "safety",
+          "accuracy": 0.94,
+          "latency_ms": 385,
+          "tokens": 710,
+          "errors": 0,
+          "score": 0.887,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "safety",
+          "accuracy": 0.912,
+          "latency_ms": 228,
+          "tokens": 575,
+          "errors": 0,
+          "score": 0.902,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "prompt_injection",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "prompt_injection",
+          "accuracy": 0.854,
+          "latency_ms": 281,
+          "tokens": 665,
+          "errors": 0,
+          "score": 0.856,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "prompt_injection",
+          "accuracy": 0.895,
+          "latency_ms": 190,
+          "tokens": 545,
+          "errors": 0,
+          "score": 0.899,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "structured_output",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "structured_output",
+          "accuracy": 0.886,
+          "latency_ms": 466,
+          "tokens": 545,
+          "errors": 0,
+          "score": 0.838,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "structured_output",
+          "accuracy": 0.889,
+          "latency_ms": 495,
+          "tokens": 1880,
+          "errors": 0,
+          "score": 0.834,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "latency",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "latency",
+          "accuracy": 0.918,
+          "latency_ms": 105,
+          "tokens": 625,
+          "errors": 0,
+          "score": 0.93,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "latency",
+          "accuracy": 0.931,
+          "latency_ms": 212,
+          "tokens": 620,
+          "errors": 0,
+          "score": 0.916,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    },
+    {
+      "benchmark": "token_efficiency",
+      "results": {
+        "Qwen/Qwen2.5-72B-Instruct": {
+          "model": "Qwen/Qwen2.5-72B-Instruct",
+          "benchmark": "token_efficiency",
+          "accuracy": 0.843,
+          "latency_ms": 280,
+          "tokens": 495,
+          "errors": 0,
+          "score": 0.85,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        },
+        "NOVA-v0.1 (synthetic)": {
+          "model": "NOVA-v0.1 (synthetic)",
+          "benchmark": "token_efficiency",
+          "accuracy": 0.803,
+          "latency_ms": 199,
+          "tokens": 420,
+          "errors": 0,
+          "score": 0.842,
+          "timestamp": "2026-09-04T08:11:08.083Z",
+          "details": {
+            "simulated": true,
+            "note": "Requires GPU inference server",
+            "test_cases": 5,
+            "passed": 5
+          }
+        }
+      }
+    }
+  ]
+}

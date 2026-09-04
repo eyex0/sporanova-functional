@@ -1,0 +1,44 @@
+{
+  "dataset_id": "nova-ds-v0.1-1788509468080-bf741c88",
+  "version": "v0.1",
+  "source": "synthetic",
+  "created_at": "2026-09-04T08:11:08.080Z",
+  "total_examples": 42,
+  "splits": {
+    "train": 33,
+    "validation": 4,
+    "test": 5
+  },
+  "rejected_count": 58,
+  "quality_stats": {
+    "avg_quality_score": 0.87,
+    "min_quality_score": 0.76
+  },
+  "language_distribution": {
+    "ar": 9,
+    "en": 31,
+    "mixed": 2
+  },
+  "category_distribution": {
+    "enterprise_reasoning": 3,
+    "agent_planning": 2,
+    "tool_calling": 2,
+    "multi_step_tool_execution": 2,
+    "tool_error_recovery": 2,
+    "structured_output": 2,
+    "json_generation": 1,
+    "sql": 2,
+    "coding": 2,
+    "rag_usage": 2,
+    "memory_usage": 2,
+    "workflow_execution": 2,
+    "customer_support": 2,
+    "business_intelligence": 2,
+    "arabic": 3,
+    "english": 2,
+    "code_switching": 2,
+    "prompt_injection_defense": 3,
+    "security_sensitive": 2,
+    "enterprise_decision_making": 2
+  }
+}

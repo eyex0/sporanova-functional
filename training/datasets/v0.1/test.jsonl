@@ -1,0 +1,224 @@
+[
+  {
+    "id": "nova-ex-1788509468072-d469b998",
+    "language": "en",
+    "category": "memory_usage",
+    "instruction": "Using the conversation history, recall the user preferred timezone and adjust the schedule accordingly.",
+    "context": "Synthetic training example for memory_usage. This data was generated for model training purposes only and does not represent real production data.",
+    "tools": [
+      {
+        "name": "memory_store",
+        "description": "Store a value in long-term memory.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "key",
+            "value"
+          ]
+        }
+      },
+      {
+        "name": "memory_retrieve",
+        "description": "Retrieve a value from long-term memory.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "key"
+          ]
+        }
+      }
+    ],
+    "final_answer": "As you mentioned previously, your project is codenamed Atlas. I have updated the Atlas project board with the new milestones.",
+    "expected_behavior": "Respond accurately, safely, and in a manner appropriate to the memory_usage category.",
+    "difficulty": "medium",
+    "safety_label": "safe",
+    "quality_score": 0.79,
+    "is_synthetic": true,
+    "metadata": {
+      "generator": "nova-dataset-generator",
+      "synthetic": true,
+      "category": "memory_usage",
+      "language": "en",
+      "version": "1.0.0"
+    },
+    "created_at": "2026-09-04T08:11:08.072Z"
+  },
+  {
+    "id": "nova-ex-1788509468072-d8b2b970",
+    "language": "en",
+    "category": "workflow_execution",
+    "instruction": "Execute the deployment workflow: run tests, build the Docker image, push to the registry, and update the staging environment.",
+    "context": "Synthetic training example for workflow_execution. This data was generated for model training purposes only and does not represent real production data.",
+    "tools": [
+      {
+        "name": "run_tests",
+        "description": "Execute the test suite.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "suite": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "name": "docker_build",
+        "description": "Build a Docker image from the Dockerfile.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "tag": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "tag"
+          ]
+        }
+      },
+      {
+        "name": "push_to_registry",
+        "description": "Push a Docker image to the container registry.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "image"
+          ]
+        }
+      },
+      {
+        "name": "deploy_staging",
+        "description": "Deploy an image to the staging environment.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "image": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "image"
+          ]
+        }
+      }
+    ],
+    "trajectory": [
+      {
+        "step": 1,
+        "action": "run_tests",
+        "observation": "All tests passed."
+      },
+      {
+        "step": 2,
+        "action": "docker_build",
+        "observation": "Image built: app:v1.0.0"
+      },
+      {
+        "step": 3,
+        "action": "push_to_registry",
+        "observation": "Image pushed."
+      },
+      {
+        "step": 4,
+        "action": "deploy_staging",
+        "observation": "Deployed to staging."
+      }
+    ],
+    "final_answer": "{\"workflow\": \"deployment\", \"steps\": [{\"name\": \"run_tests\", \"status\": \"passed\", \"duration\": \"45s\"}, {\"name\": \"docker_build\", \"status\": \"completed\", \"image\": \"registry.co/app:v2.3.1\"}, {\"name\": \"push_to_registry\", \"status\": \"success\"}, {\"name\": \"update_staging\", \"status\": \"completed\", \"url\": \"https://staging.co\"}], \"overall_status\": \"success\"}",
+    "expected_behavior": "Respond accurately, safely, and in a manner appropriate to the workflow_execution category.",
+    "difficulty": "medium",
+    "safety_label": "safe",
+    "quality_score": 0.85,
+    "is_synthetic": true,
+    "metadata": {
+      "generator": "nova-dataset-generator",
+      "synthetic": true,
+      "category": "workflow_execution",
+      "language": "en",
+      "version": "1.0.0"
+    },
+    "created_at": "2026-09-04T08:11:08.072Z"
+  },
+  {
+    "id": "nova-ex-1788509468072-d92d0c7f",
+    "language": "en",
+    "category": "enterprise_reasoning",
+    "instruction": "Evaluate the risk of expanding into the Middle East market given current geopolitical factors.",
+    "context": "Synthetic training example for enterprise_reasoning. This data was generated for model training purposes only and does not represent real production data.",
+    "final_answer": "Based on the analysis, the revenue decline is driven by increased churn in the mid-market segment and delayed renewals. Recommended actions: (1) Launch a targeted retention campaign for at-risk accounts, (2) Introduce a simplified pricing tier, (3) Assign dedicated success managers to the top 50 accounts.",
+    "expected_behavior": "Respond accurately, safely, and in a manner appropriate to the enterprise_reasoning category.",
+    "difficulty": "expert",
+    "safety_label": "safe",
+    "quality_score": 0.86,
+    "is_synthetic": true,
+    "metadata": {
+      "generator": "nova-dataset-generator",
+      "synthetic": true,
+      "category": "enterprise_reasoning",
+      "language": "en",
+      "version": "1.0.0"
+    },
+    "created_at": "2026-09-04T08:11:08.072Z"
+  },
+  {
+    "id": "nova-ex-1788509468072-ecc94b85",
+    "language": "ar",
+    "category": "coding",
+    "instruction": "Write a Python function that implements LRU cache with O(1) operations.",
+    "context": "Synthetic training example for coding. This data was generated for model training purposes only and does not represent real production data.",
+    "final_answer": "class LRUCache:\n    def __init__(self, capacity: int):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key: str):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key: str, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)",
+    "expected_behavior": "Respond accurately, safely, and in a manner appropriate to the coding category.",
+    "difficulty": "expert",
+    "safety_label": "safe",
+    "quality_score": 0.99,
+    "is_synthetic": true,
+    "metadata": {
+      "generator": "nova-dataset-generator",
+      "synthetic": true,
+      "category": "coding",
+      "language": "ar",
+      "version": "1.0.0"
+    },
+    "created_at": "2026-09-04T08:11:08.072Z"
+  },
+  {
+    "id": "nova-ex-1788509468072-fbf5d3f7",
+    "language": "mixed",
+    "category": "code_switching",
+    "instruction": "المستخدم يطلب help بخصوص deployment pipeline. كيف نساعد؟",
+    "context": "Synthetic training example for code_switching. This data was generated for model training purposes only and does not represent real production data.",
+    "final_answer": "الآن نساعدك. بالنسبة لـ deployment pipeline، نحتاج أولاً setup CI/CD然后再 run tests before pushing to production. هل عندك أي مشاكل محددة؟",
+    "expected_behavior": "Respond accurately, safely, and in a manner appropriate to the code_switching category.",
+    "difficulty": "medium",
+    "safety_label": "safe",
+    "quality_score": 0.96,
+    "is_synthetic": true,
+    "metadata": {
+      "generator": "nova-dataset-generator",
+      "synthetic": true,
+      "category": "code_switching",
+      "language": "mixed",
+      "version": "1.0.0"
+    },
+    "created_at": "2026-09-04T08:11:08.072Z"
+  }
+]
